@@ -119,6 +119,7 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists update_referrals_updated_at on referrals;
 create trigger update_referrals_updated_at
   before update on referrals
   for each row execute function update_updated_at_column();
@@ -203,13 +204,29 @@ alter table ledger_entries enable row level security;
 alter table reviews enable row level security;
 alter table payouts enable row level security;
 
+drop policy if exists "public_read_vendors" on vendors;
 create policy "public_read_vendors" on vendors for select using (true);
+
+drop policy if exists "public_read_ledger" on ledger_entries;
 create policy "public_read_ledger" on ledger_entries for select using (true);
+
+drop policy if exists "public_read_reviews" on reviews;
 create policy "public_read_reviews" on reviews for select using (true);
 
+drop policy if exists "service_role_all_vendors" on vendors;
 create policy "service_role_all_vendors" on vendors for all using (auth.role() = 'service_role');
+
+drop policy if exists "service_role_all_connectors" on connectors;
 create policy "service_role_all_connectors" on connectors for all using (auth.role() = 'service_role');
+
+drop policy if exists "service_role_all_referrals" on referrals;
 create policy "service_role_all_referrals" on referrals for all using (auth.role() = 'service_role');
+
+drop policy if exists "service_role_all_ledger" on ledger_entries;
 create policy "service_role_all_ledger" on ledger_entries for all using (auth.role() = 'service_role');
+
+drop policy if exists "service_role_all_reviews" on reviews;
 create policy "service_role_all_reviews" on reviews for all using (auth.role() = 'service_role');
+
+drop policy if exists "service_role_all_payouts" on payouts;
 create policy "service_role_all_payouts" on payouts for all using (auth.role() = 'service_role');
