@@ -1,4 +1,4 @@
-om Connection Network
+# The Connection Network
 
 A network-wide referral platform that generalizes PrimeTurf's existing
 "5% of job value + R500 closing bonus" Connection Network program
