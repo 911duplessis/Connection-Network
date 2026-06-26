@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
+import { notify } from '@/lib/whatsapp/client'
 
 function generateReferralCode(name: string) {
   const base = name.trim().split(/\s+/)[0].slice(0, 6).toUpperCase()
@@ -49,6 +50,11 @@ export async function POST(req: Request) {
     referralCode: connector.referral_code,
     uplineConnectorId,
   })
+
+  await notify(
+    connector.whatsapp_number,
+    `Welcome to The Connection Network, ${connector.name}! Your referral code is ${connector.referral_code}. Share it, or submit referrals directly via the vendor pages.`
+  )
 
   return NextResponse.json({ referralCode: connector.referral_code, connectorId: connector.id })
 }

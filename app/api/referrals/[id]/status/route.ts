@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { calculateCommission } from '@/lib/commission/calc'
+import { notify } from '@/lib/whatsapp/client'
+
+function formatAmount(cents: number, currency: string): string {
+  return `${(cents / 100).toFixed(2)} ${currency}`
+}
 
 const VALID_STATUSES = ['submitted', 'contacted', 'quoted', 'won', 'lost']
 
@@ -37,7 +42,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const connector = referral.connectors
 
   const { data: upline } = connector.upline_connector_id
-    ? await supabaseAdmin.from('connectors').select('id').eq('id', connector.upline_connector_id).single()
+    ? await supabaseAdmin
+        .from('connectors')
+        .select('id, whatsapp_number')
+        .eq('id', connector.upline_connector_id)
+        .single()
     : { data: null }
 
   const breakdown = calculateCommission(
@@ -71,6 +80,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     ledger_entry_seq: tier1Entry.seq,
   })
 
+  await notify(
+    connector.whatsapp_number,
+    `Referral won! ${vendor.name} closed your lead for ${formatAmount(jobValueCents, vendor.currency)}. Your commission: ${formatAmount(breakdown.tier1AmountCents, vendor.currency)}.`
+  )
+
   if (breakdown.hasTier2 && upline) {
     const tier2Entry = await appendLedgerEntry('commission_tier2_paid', {
       referralId: referral.id,
@@ -85,6 +99,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       amount_cents: breakdown.tier2AmountCents,
       ledger_entry_seq: tier2Entry.seq,
     })
+
+    await notify(
+      upline.whatsapp_number,
+      `Override commission earned: a connector in your downline closed a referral via ${vendor.name}. Your Tier 2 override: ${formatAmount(breakdown.tier2AmountCents, vendor.currency)}.`
+    )
   }
 
   if (vendor.eco_pledge_pct > 0) {

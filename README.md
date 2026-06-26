@@ -103,6 +103,35 @@ can't be run from a sandboxed dev environment.
    ```
 5. `npm run dev` — join at `/join`, browse vendors at `/vendors`, watch the
    feed at `/ledger`.
+6. **Admin dashboard**: visit `/admin`, sign in with `ADMIN_PASSWORD` (set
+   in `.env.local`), and manage referral status from there instead of
+   calling the API directly.
+
+## WhatsApp notifications
+
+Connectors and vendors get a WhatsApp message on key events (connector
+joins, referral submitted, deal won, commission/override paid) via Meta's
+free WhatsApp Cloud API. Without credentials set, notifications silently
+no-op — the app works fine, you just don't get the messages.
+
+To enable them:
+
+1. Create a free [Meta for Developers](https://developers.facebook.com/)
+   account and a new app with the **WhatsApp** product added.
+2. In the app's WhatsApp → API Setup page, grab the **temporary access
+   token** and **Phone Number ID** (a test number is provided free; you can
+   add your own number later).
+3. Add a recipient test number (Meta requires this for unverified apps) or
+   apply for production access to message any number.
+4. Set `WHATSAPP_ACCESS_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID` in
+   `.env.local`.
+
+One caveat: Meta only allows free-form text messages to someone who
+messaged your business number in the last 24 hours. For messages *you*
+initiate (referral/payout notifications), Meta requires a pre-approved
+**message template** for reliable delivery outside that window — create
+one under WhatsApp → Message Templates in Meta Business Manager once
+you're ready to go beyond testing.
 
 ## Deployment
 
