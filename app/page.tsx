@@ -29,6 +29,9 @@ export default function Home() {
             View the public ledger
           </Link>
         </div>
+        <Link href="/admin" className="mt-4 inline-block text-sm text-white/40 hover:text-white/70">
+          Vendor admin login
+        </Link>
       </section>
 
       <section className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-3">
