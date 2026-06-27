@@ -1,0 +1,74 @@
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { supabaseAdmin } from '@/lib/supabase'
+import { VENDOR_SESSION_COOKIE, verifyVendorSession } from '@/lib/vendor/auth'
+import ReferralRow from '@/components/ReferralRow'
+import SignOutButton from '@/components/SignOutButton'
+
+export default async function VendorDashboardPage() {
+  const cookieStore = await cookies()
+  const vendorCookie = cookieStore.get(VENDOR_SESSION_COOKIE)?.value
+  const claimedVendorId = vendorCookie?.split('.')[0]
+
+  if (!claimedVendorId) {
+    redirect('/vendor-login')
+  }
+
+  const { data: vendor } = await supabaseAdmin
+    .from('vendors')
+    .select('id, name, password_hash')
+    .eq('id', claimedVendorId)
+    .single()
+
+  const verifiedVendorId = await verifyVendorSession(vendorCookie, vendor?.password_hash ?? null)
+
+  if (!verifiedVendorId || !vendor) {
+    redirect('/vendor-login')
+  }
+
+  const { data: referrals } = await supabaseAdmin
+    .from('referrals')
+    .select('*, vendors(name, slug, currency), connectors(name, whatsapp_number)')
+    .eq('vendor_id', verifiedVendorId)
+    .order('created_at', { ascending: false })
+
+  return (
+    <main className="mx-auto max-w-5xl px-6 py-12">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{vendor.name}</h1>
+          <p className="text-sm text-white/50">Your referrals</p>
+        </div>
+        <SignOutButton logoutUrl="/api/vendor/logout" redirectTo="/vendor-login" />
+      </div>
+
+      <div className="mt-8 overflow-x-auto rounded-lg border border-white/10">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-white/5 text-white/60">
+            <tr>
+              <th className="px-4 py-3">Lead</th>
+              <th className="px-4 py-3">Vendor</th>
+              <th className="px-4 py-3">Connector</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Job value</th>
+              <th className="px-4 py-3">Created</th>
+              <th className="px-4 py-3">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {referrals?.map((r) => (
+              <ReferralRow key={r.id} referral={r} />
+            ))}
+            {referrals?.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-white/50">
+                  No referrals yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  )
+}

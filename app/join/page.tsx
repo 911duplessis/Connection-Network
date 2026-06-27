@@ -6,6 +6,7 @@ export default function JoinPage() {
   const [name, setName] = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [uplineReferralCode, setUplineReferralCode] = useState('')
+  const [agreementAccepted, setAgreementAccepted] = useState(false)
   const [result, setResult] = useState<{ referralCode: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -18,7 +19,12 @@ export default function JoinPage() {
       const res = await fetch('/api/connectors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, whatsappNumber, uplineReferralCode: uplineReferralCode || undefined }),
+        body: JSON.stringify({
+          name,
+          whatsappNumber,
+          uplineReferralCode: uplineReferralCode || undefined,
+          agreementAccepted,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong')
@@ -79,13 +85,36 @@ export default function JoinPage() {
             className="mt-1 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2"
           />
         </div>
+
+        <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+          <h2 className="text-sm font-semibold text-white/80">Partner agreement</h2>
+          <ul className="mt-3 space-y-2 text-xs text-white/60">
+            <li>— Your reward terms are set by each vendor and shown on their listing before you refer anyone.</li>
+            <li>— Rewards are calculated on the final confirmed job value, including any add-ons agreed at quote stage.</li>
+            <li>— Payment is made once the vendor confirms the job as won — no reward on unconfirmed or cancelled jobs.</li>
+            <li>— There are no fees, no joining costs, and no obligation to sell — connectors only introduce.</li>
+            <li>— If you recruit other connectors with your referral code, you automatically earn a Tier 2 override on their commissions.</li>
+            <li>— Every referral, commission, and payout is recorded on The Connection Network's public, tamper-evident ledger.</li>
+          </ul>
+          <label className="mt-4 flex items-start gap-3 text-xs text-white/70">
+            <input
+              type="checkbox"
+              required
+              checked={agreementAccepted}
+              onChange={(e) => setAgreementAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 flex-shrink-0"
+            />
+            I have read and accept The Connection Network partner agreement above.
+          </label>
+        </div>
+
         {error && <p className="text-sm text-red-400">{error}</p>}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !agreementAccepted}
           className="w-full rounded-md bg-cobalt px-6 py-3 font-semibold text-white disabled:opacity-50"
         >
-          {loading ? 'Joining...' : 'Join the network'}
+          {loading ? 'Joining...' : 'Sign agreement & join the network'}
         </button>
       </form>
     </main>
