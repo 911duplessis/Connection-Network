@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { notify } from '@/lib/whatsapp/client'
+import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 
 function generateReferralCode(name: string) {
   const base = name.trim().split(/\s+/)[0].slice(0, 6).toUpperCase()
@@ -11,15 +12,17 @@ function generateReferralCode(name: string) {
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const { name, whatsappNumber, uplineReferralCode, agreementAccepted } = body
+  const { name, whatsappNumber: rawWhatsappNumber, uplineReferralCode, agreementAccepted } = body
 
-  if (!name || !whatsappNumber) {
+  if (!name || !rawWhatsappNumber) {
     return NextResponse.json({ error: 'name and whatsappNumber are required' }, { status: 400 })
   }
 
   if (!agreementAccepted) {
     return NextResponse.json({ error: 'You must accept the partner agreement to join' }, { status: 400 })
   }
+
+  const whatsappNumber = normalizeWhatsAppNumber(rawWhatsappNumber)
 
   let uplineConnectorId: string | null = null
   if (uplineReferralCode) {
