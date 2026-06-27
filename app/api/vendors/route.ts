@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { hashPassword } from '@/lib/admin/auth'
+import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 
 function slugify(name: string) {
   return name
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   const {
     businessName,
     contactPerson,
-    whatsappNumber,
+    whatsappNumber: rawWhatsappNumber,
     website,
     tier1Pct,
     tier1FlatRand,
@@ -26,12 +27,14 @@ export async function POST(req: Request) {
     password,
   } = body
 
-  if (!businessName || !contactPerson || !whatsappNumber || !password) {
+  if (!businessName || !contactPerson || !rawWhatsappNumber || !password) {
     return NextResponse.json(
       { error: 'businessName, contactPerson, whatsappNumber, and password are required' },
       { status: 400 }
     )
   }
+
+  const whatsappNumber = normalizeWhatsAppNumber(rawWhatsappNumber)
 
   if (password.length < 6) {
     return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })

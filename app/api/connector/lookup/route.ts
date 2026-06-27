@@ -1,18 +1,19 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 
 export async function POST(req: Request) {
-  const { whatsappNumber, referralCode } = await req.json()
+  const { whatsappNumber: rawWhatsappNumber, referralCode } = await req.json()
 
-  if (!whatsappNumber || !referralCode) {
+  if (!rawWhatsappNumber || !referralCode) {
     return NextResponse.json({ error: 'whatsappNumber and referralCode are required' }, { status: 400 })
   }
 
   const { data: connector } = await supabaseAdmin
     .from('connectors')
     .select('id, name, whatsapp_number, referral_code, agreement_signed_at')
-    .eq('whatsapp_number', whatsappNumber)
-    .eq('referral_code', referralCode)
+    .eq('whatsapp_number', normalizeWhatsAppNumber(rawWhatsappNumber))
+    .eq('referral_code', referralCode.trim().toUpperCase())
     .single()
 
   if (!connector) {

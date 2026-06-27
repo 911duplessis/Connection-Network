@@ -2,18 +2,19 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { hashPassword } from '@/lib/admin/auth'
 import { signVendorSession, VENDOR_SESSION_COOKIE } from '@/lib/vendor/auth'
+import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 
 export async function POST(req: Request) {
-  const { whatsappNumber, password } = await req.json()
+  const { whatsappNumber: rawWhatsappNumber, password } = await req.json()
 
-  if (!whatsappNumber || !password) {
+  if (!rawWhatsappNumber || !password) {
     return NextResponse.json({ error: 'whatsappNumber and password are required' }, { status: 400 })
   }
 
   const { data: vendor } = await supabaseAdmin
     .from('vendors')
     .select('id, password_hash')
-    .eq('whatsapp_number', whatsappNumber)
+    .eq('whatsapp_number', normalizeWhatsAppNumber(rawWhatsappNumber))
     .single()
 
   if (!vendor || !vendor.password_hash) {
