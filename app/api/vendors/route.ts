@@ -41,7 +41,8 @@ export async function POST(req: Request) {
   }
 
   const baseSlug = slugify(businessName)
-  const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`
+  const { data: slugTaken } = await supabaseAdmin.from('vendors').select('id').eq('slug', baseSlug).maybeSingle()
+  const slug = slugTaken ? `${baseSlug}-${Math.random().toString(36).slice(2, 6)}` : baseSlug
 
   const { data: vendor, error } = await supabaseAdmin
     .from('vendors')
