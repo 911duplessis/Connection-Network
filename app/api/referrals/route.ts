@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
+import { notify } from '@/lib/whatsapp/client'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
 
   const { data: vendor, error: vendorError } = await supabaseAdmin
     .from('vendors')
-    .select('id')
+    .select('id, name, whatsapp_number')
     .eq('slug', vendorSlug)
     .single()
 
@@ -45,6 +46,11 @@ export async function POST(req: Request) {
     vendorSlug,
     leadName,
   })
+
+  await notify(
+    vendor.whatsapp_number,
+    `New referral via The Connection Network: ${leadName} (${leadContact})${note ? ` — "${note}"` : ''}. Log in to your admin dashboard to follow up.`
+  )
 
   return NextResponse.json({ referralId: referral.id })
 }

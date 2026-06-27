@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { calculateCommission } from '@/lib/commission/calc'
+import { notify } from '@/lib/whatsapp/client'
+import { hashPassword, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
+import { VENDOR_SESSION_COOKIE, verifyVendorSession } from '@/lib/vendor/auth'
+
+function formatAmount(cents: number, currency: string): string {
+  return `${(cents / 100).toFixed(2)} ${currency}`
+}
 
 const VALID_STATUSES = ['submitted', 'contacted', 'quoted', 'won', 'lost']
 
@@ -16,6 +24,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   if (status === 'won' && !jobValueCents) {
     return NextResponse.json({ error: 'jobValueCents is required when status is won' }, { status: 400 })
+  }
+
+  const { data: existing } = await supabaseAdmin
+    .from('referrals')
+    .select('vendor_id, vendors(password_hash)')
+    .eq('id', id)
+    .single()
+
+  if (!existing) {
+    return NextResponse.json({ error: 'Referral not found' }, { status: 404 })
+  }
+
+  const cookieStore = await cookies()
+  const adminCookie = cookieStore.get(ADMIN_SESSION_COOKIE)?.value
+  const isAdmin = !!adminCookie && adminCookie === (await hashPassword(process.env.ADMIN_PASSWORD ?? ''))
+
+  let isVendor = false
+  if (!isAdmin) {
+    const vendorCookie = cookieStore.get(VENDOR_SESSION_COOKIE)?.value
+    const vendorRecord = existing.vendors as unknown as { password_hash: string | null } | null
+    const verifiedVendorId = await verifyVendorSession(vendorCookie, vendorRecord?.password_hash ?? null)
+    isVendor = verifiedVendorId === existing.vendor_id
+  }
+
+  if (!isAdmin && !isVendor) {
+    return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
   }
 
   const { data: referral, error: referralError } = await supabaseAdmin
@@ -37,7 +71,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const connector = referral.connectors
 
   const { data: upline } = connector.upline_connector_id
-    ? await supabaseAdmin.from('connectors').select('id').eq('id', connector.upline_connector_id).single()
+    ? await supabaseAdmin
+        .from('connectors')
+        .select('id, whatsapp_number')
+        .eq('id', connector.upline_connector_id)
+        .single()
     : { data: null }
 
   const breakdown = calculateCommission(
@@ -71,6 +109,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     ledger_entry_seq: tier1Entry.seq,
   })
 
+  await notify(
+    connector.whatsapp_number,
+    `Referral won! ${vendor.name} closed your lead for ${formatAmount(jobValueCents, vendor.currency)}. Your commission: ${formatAmount(breakdown.tier1AmountCents, vendor.currency)}.`
+  )
+
   if (breakdown.hasTier2 && upline) {
     const tier2Entry = await appendLedgerEntry('commission_tier2_paid', {
       referralId: referral.id,
@@ -85,6 +128,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       amount_cents: breakdown.tier2AmountCents,
       ledger_entry_seq: tier2Entry.seq,
     })
+
+    await notify(
+      upline.whatsapp_number,
+      `Override commission earned: a connector in your downline closed a referral via ${vendor.name}. Your Tier 2 override: ${formatAmount(breakdown.tier2AmountCents, vendor.currency)}.`
+    )
   }
 
   if (vendor.eco_pledge_pct > 0) {

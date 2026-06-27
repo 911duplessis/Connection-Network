@@ -19,6 +19,9 @@ const LABELS: Record<string, string> = {
   commission_tier2_paid: 'Tier 2 override paid',
   eco_pledge_honoured: 'Eco pledge honoured',
   review_submitted: 'Review submitted',
+  vendor_joined: 'Vendor joined',
+  agreement_signed: 'Partner agreement signed',
+  whatsapp_message_received: 'WhatsApp message received',
 }
 
 export default function LedgerPage() {
