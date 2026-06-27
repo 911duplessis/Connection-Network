@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { sendWhatsAppText } from '@/lib/whatsapp/client'
+import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 
 // Meta's webhook handshake: https://developers.facebook.com/docs/graph-api/webhooks/getting-started
 export async function GET(req: Request) {
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
   ) ?? []
 
   for (const message of messages) {
-    const from = message.from
+    const from = normalizeWhatsAppNumber(message.from)
     const text = message.text?.body?.trim() ?? ''
     const keyword = text.toUpperCase().split(/\s+/)[0]
 
