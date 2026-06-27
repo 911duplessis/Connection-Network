@@ -19,6 +19,7 @@ const initial = {
 export default function VendorSignupPage() {
   const [form, setForm] = useState(initial)
   const [submitted, setSubmitted] = useState(false)
+  const [slug, setSlug] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -38,6 +39,7 @@ export default function VendorSignupPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong')
+      setSlug(data.slug)
       setSubmitted(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -51,11 +53,26 @@ export default function VendorSignupPage() {
       <main className="mx-auto max-w-lg px-6 py-16 text-center">
         <h1 className="text-2xl font-bold">Vendor sign-up received.</h1>
         <p className="mt-4 text-white/70">
-          We&apos;ll review and activate your listing shortly. Once active, you can{' '}
+          We&apos;ll review and activate your listing shortly. Once active, it goes public on the{' '}
+          <Link href="/vendors" className="text-cobalt underline">
+            vendor directory
+          </Link>
+          .
+        </p>
+        {slug && (
+          <Link
+            href={`/vendors/${slug}`}
+            className="mt-6 inline-block w-full rounded-md bg-cobalt px-6 py-3 font-semibold text-white"
+          >
+            Preview your page
+          </Link>
+        )}
+        <p className="mt-6 text-sm text-white/70">
+          You can{' '}
           <Link href="/vendor-login" className="text-cobalt underline">
             sign in to your vendor dashboard
           </Link>{' '}
-          with the WhatsApp number and password you just set, to see referrals and update status.
+          any time with the WhatsApp number and password you just set, to see referrals and update status.
         </p>
       </main>
     )
