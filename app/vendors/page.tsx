@@ -33,6 +33,15 @@ export default async function VendorsPage() {
             </p>
           </Link>
         ))}
+        {!vendors?.length && (
+          <p className="text-sm text-white/50">
+            No vendors listed yet.{' '}
+            <Link href="/vendors/signup" className="text-cobalt underline">
+              Be the first to sign up
+            </Link>
+            .
+          </p>
+        )}
       </div>
     </main>
   )
