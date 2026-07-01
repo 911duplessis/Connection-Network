@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { hashPassword } from '@/lib/admin/auth'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
+import { notify } from '@/lib/whatsapp/client'
 
 function slugify(name: string) {
   return name
@@ -72,6 +73,20 @@ export async function POST(req: Request) {
     vendorSlug: vendor.slug,
     name: vendor.name,
   })
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://connection-network.vercel.app'
+
+  await notify(
+    vendor.whatsapp_number,
+    `Hi ${vendor.contact_person}, your vendor listing for ${vendor.name} has been submitted to The Connection Network. ` +
+      `We'll review and activate it shortly. Preview your page here: ${appUrl}/vendors/${vendor.slug}`
+  )
+
+  await notify(
+    process.env.ADMIN_WHATSAPP_NUMBER,
+    `New vendor sign-up: ${vendor.name} (${vendor.contact_person}, ${vendor.whatsapp_number}). ` +
+      `Activate their listing in the admin dashboard: ${appUrl}/admin`
+  )
 
   return NextResponse.json({ slug: vendor.slug })
 }
