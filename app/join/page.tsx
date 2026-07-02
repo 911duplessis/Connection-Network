@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 
 export default function JoinPage() {
   const [name, setName] = useState('')
@@ -104,7 +105,11 @@ export default function JoinPage() {
               onChange={(e) => setAgreementAccepted(e.target.checked)}
               className="mt-0.5 h-4 w-4 flex-shrink-0"
             />
-            I have read and accept The Connection Network partner agreement above.
+            I have read and accept The Connection Network{' '}
+            <Link href="/partner-agreement" target="_blank" className="text-cobalt underline">
+              partner agreement
+            </Link>
+            . My acceptance will be permanently recorded on the public ledger.
           </label>
         </div>
 

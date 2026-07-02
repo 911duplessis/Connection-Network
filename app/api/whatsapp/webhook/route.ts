@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { sendWhatsAppText } from '@/lib/whatsapp/client'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
+import { verifyWebhookSignature } from '@/lib/whatsapp/webhook'
 
 // Meta's webhook handshake: https://developers.facebook.com/docs/graph-api/webhooks/getting-started
 export async function GET(req: Request) {
@@ -38,7 +39,22 @@ interface WhatsAppWebhookPayload {
 }
 
 export async function POST(req: Request) {
-  const payload: WhatsAppWebhookPayload = await req.json()
+  // Read as raw text first — the signature commits to the exact bytes Meta
+  // sent, so JSON.parse()-ing before verifying would discard that.
+  const rawBody = await req.text()
+  const signatureHeader = req.headers.get('x-hub-signature-256')
+  const verified = await verifyWebhookSignature(rawBody, signatureHeader, process.env.WHATSAPP_APP_SECRET)
+
+  if (!verified) {
+    // Fail closed: unlike notify()'s "skip if unconfigured" outbound pattern,
+    // this is a public ingestion endpoint — an unverifiable request must be
+    // rejected, not silently accepted, or anyone could write fake events
+    // into the public, tamper-evident ledger.
+    console.error('[whatsapp] webhook signature verification failed')
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+  }
+
+  const payload: WhatsAppWebhookPayload = JSON.parse(rawBody)
 
   const messages = payload.entry?.flatMap((entry) =>
     entry.changes?.flatMap((change) => change.value?.messages ?? []) ?? []
@@ -59,11 +75,14 @@ export async function POST(req: Request) {
       ? { data: null }
       : await supabaseAdmin.from('vendors').select('id, name').eq('whatsapp_number', from).maybeSingle()
 
+    // The ledger is public — every other entry type avoids phone numbers and
+    // free-text content, so this one shouldn't be the exception. Record only
+    // who/what matched and which keyword (if any), never the raw number or
+    // message body.
     await appendLedgerEntry('whatsapp_message_received', {
-      from,
-      text,
       connectorId: connector?.id ?? null,
       vendorId: vendor?.id ?? null,
+      matchedKeyword: KEYWORD_REPLIES[keyword] ? keyword : null,
     })
 
     const reply = KEYWORD_REPLIES[keyword]

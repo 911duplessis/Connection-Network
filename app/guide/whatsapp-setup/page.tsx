@@ -11,6 +11,14 @@ export default function WhatsAppSetupGuidePage() {
         (Hierdie is die laaste stap om jou WhatsApp te koppel — volg net die nommers onder een vir een.)
       </p>
 
+      <div className="mt-6 rounded-lg border border-gold/30 bg-gold/10 p-4 text-sm text-white/80">
+        <strong className="text-gold">This is not &ldquo;Meta Verified.&rdquo;</strong> If you were asked to
+        verify your identity for a blue checkmark/badge on Facebook or Instagram, that&rsquo;s a separate paid
+        subscription and has nothing to do with connecting WhatsApp here — skip it. What you need below is the
+        free &ldquo;WhatsApp Business Cloud API,&rdquo; a different thing entirely. You&rsquo;ll end up with four
+        values: an access token, a Phone Number ID, a verify token you make up yourself, and an App Secret.
+      </div>
+
       <ol className="mt-10 space-y-8">
         <li>
           <h2 className="text-lg font-semibold text-gold">1. Create a Meta Business account</h2>
@@ -81,7 +89,17 @@ export default function WhatsAppSetupGuidePage() {
         </li>
 
         <li>
-          <h2 className="text-lg font-semibold text-gold">6. Add the three env vars to Vercel</h2>
+          <h2 className="text-lg font-semibold text-gold">6. Copy your App Secret</h2>
+          <p className="mt-2 text-sm text-white/70">
+            In your app dashboard → Settings → Basic, click &ldquo;Show&rdquo; next to App Secret and copy it.
+            This is different from the access token — it&rsquo;s never sent anywhere, it&rsquo;s only used to let
+            the website confirm that an incoming message really came from Meta and not from someone pretending
+            to. This is your <code className="rounded bg-white/10 px-1 py-0.5 text-xs">WHATSAPP_APP_SECRET</code>.
+          </p>
+        </li>
+
+        <li>
+          <h2 className="text-lg font-semibold text-gold">7. Add the four env vars to Vercel</h2>
           <p className="mt-2 text-sm text-white/70">
             In your Vercel project → Settings → Environment Variables, add:
           </p>
@@ -95,6 +113,10 @@ export default function WhatsAppSetupGuidePage() {
               ID from step 5
             </li>
             <li>
+              <code className="rounded bg-white/10 px-1 py-0.5 text-xs">WHATSAPP_APP_SECRET</code> — the App
+              Secret from step 6
+            </li>
+            <li>
               <code className="rounded bg-white/10 px-1 py-0.5 text-xs">WHATSAPP_VERIFY_TOKEN</code> — make up
               any random string yourself, e.g. <code className="rounded bg-white/10 px-1 py-0.5 text-xs">tcn-verify-2026</code>
             </li>
@@ -103,7 +125,7 @@ export default function WhatsAppSetupGuidePage() {
         </li>
 
         <li>
-          <h2 className="text-lg font-semibold text-gold">7. Point the webhook at this site</h2>
+          <h2 className="text-lg font-semibold text-gold">8. Point the webhook at this site</h2>
           <p className="mt-2 text-sm text-white/70">
             Back in the app dashboard → WhatsApp → Configuration → Webhook → Edit. Set the Callback URL to{' '}
             <code className="rounded bg-white/10 px-1 py-0.5 text-xs">https://connection-network.vercel.app/api/whatsapp/webhook</code>{' '}
