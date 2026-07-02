@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
 const initial = {
   businessName: '',
@@ -16,7 +17,10 @@ const initial = {
   password: '',
 }
 
-export default function VendorSignupPage() {
+function VendorSignupForm() {
+  const searchParams = useSearchParams()
+  const inviteToken = searchParams.get('invite')
+
   const [form, setForm] = useState(initial)
   const [submitted, setSubmitted] = useState(false)
   const [slug, setSlug] = useState<string | null>(null)
@@ -35,7 +39,7 @@ export default function VendorSignupPage() {
       const res = await fetch('/api/vendors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, inviteToken: inviteToken || undefined }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong')
@@ -190,5 +194,13 @@ export default function VendorSignupPage() {
         </button>
       </form>
     </main>
+  )
+}
+
+export default function VendorSignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <VendorSignupForm />
+    </Suspense>
   )
 }

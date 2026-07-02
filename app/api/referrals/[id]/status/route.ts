@@ -6,6 +6,7 @@ import { calculateCommission } from '@/lib/commission/calc'
 import { notify } from '@/lib/whatsapp/client'
 import { hashPassword, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
 import { VENDOR_SESSION_COOKIE, verifyVendorSession } from '@/lib/vendor/auth'
+import { maybePromoteConnectorGrade, overridePctForGrade } from '@/lib/connectors/grade'
 
 function formatAmount(cents: number, currency: string): string {
   return `${(cents / 100).toFixed(2)} ${currency}`
@@ -73,7 +74,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { data: upline } = connector.upline_connector_id
     ? await supabaseAdmin
         .from('connectors')
-        .select('id, whatsapp_number')
+        .select('id, whatsapp_number, grade')
         .eq('id', connector.upline_connector_id)
         .single()
     : { data: null }
@@ -83,7 +84,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     {
       tier1Pct: vendor.tier1_pct,
       tier1FlatCents: vendor.tier1_flat_cents,
-      tier2OverridePct: vendor.tier2_override_pct,
+      // An Active Partner+ upline earns the promoted override on their own
+      // downline's tier-1 commissions, replacing the vendor's default.
+      tier2OverridePct: upline
+        ? overridePctForGrade(upline.grade, vendor.tier2_override_pct)
+        : vendor.tier2_override_pct,
     },
     !!upline
   )
@@ -113,6 +118,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     connector.whatsapp_number,
     `Referral won! ${vendor.name} closed your lead for ${formatAmount(jobValueCents, vendor.currency)}. Your commission: ${formatAmount(breakdown.tier1AmountCents, vendor.currency)}.`
   )
+
+  await maybePromoteConnectorGrade(connector.id, connector.whatsapp_number)
 
   if (breakdown.hasTier2 && upline) {
     const tier2Entry = await appendLedgerEntry('commission_tier2_paid', {

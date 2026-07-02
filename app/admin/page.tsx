@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import Link from 'next/link'
 import ReferralRow from '@/components/ReferralRow'
 import SignOutButton from '@/components/SignOutButton'
 import VendorActivationRow from '@/components/VendorActivationRow'
@@ -18,7 +19,12 @@ export default async function AdminPage() {
     <main className="mx-auto max-w-5xl px-6 py-12">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Admin</h1>
-        <SignOutButton logoutUrl="/api/admin/logout" redirectTo="/admin/login" />
+        <div className="flex items-center gap-4">
+          <Link href="/admin/invitations" className="text-sm text-cobalt underline">
+            Outreach invitations
+          </Link>
+          <SignOutButton logoutUrl="/api/admin/logout" redirectTo="/admin/login" />
+        </div>
       </div>
 
       <h2 className="mt-10 text-lg font-semibold text-white/80">Vendor approvals</h2>

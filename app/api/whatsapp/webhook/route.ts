@@ -20,12 +20,35 @@ export async function GET(req: Request) {
 }
 
 const KEYWORD_REPLIES: Record<string, string> = {
-  CONNECT: "Hey! You're in. The Connection Network is a referral network — vendors list rewards, connectors make introductions and get paid when they convert. Reply JOIN and we'll get you a referral code, or visit the website to sign up directly.",
+  CONNECT:
+    "Hey! You're in. The Connection Network is a referral network — vendors list rewards, connectors make introductions and get paid when they convert. Reply JOIN and we'll get you a referral code, or visit the website to sign up directly.",
   JOIN: "Head to the website and tap 'Become a connector' to get your referral code instantly — takes under a minute, no password needed.",
-  READY: "Great — once you've got your referral code, submit any lead straight from a vendor's page on the website and we'll track it for you.",
-  ACTIVE: "You're marked as active. Keep an eye out for opportunities and submit referrals as soon as you spot one.",
+  READY:
+    "Great — once you've got your referral code, submit any lead straight from a vendor's page on the website and we'll track it for you. One quick thing: reply A if you mostly refer people you know, B if you run a business that could supply leads, or C if you're just exploring for now.",
+  ACTIVE: 'You are marked as active. Keep an eye out for opportunities and submit referrals as soon as you spot one.',
   STAY: 'Good to have you. We will keep you posted on opportunities.',
   OUT: 'No hard feelings — you have been noted as opted out. Send CONNECT again anytime if you change your mind.',
+}
+
+// Broad self-declared intent, asked once via the READY reply above. Distinct
+// from the finer-grained professional-type commission table (Architect,
+// Estate agent, etc.) in docs/tcn-program-strategy.md — that's set on the
+// vendor side, this is just "what kind of connector are you".
+const CONNECTOR_TYPE_REPLIES: Record<string, { type: 'referrer' | 'supplier' | 'explorer'; reply: string }> = {
+  A: {
+    type: 'referrer',
+    reply:
+      "Got it — you're a Referrer. Submit any lead straight from a vendor's page on the website and we'll track it under your code.",
+  },
+  B: {
+    type: 'supplier',
+    reply: "Got it — you're a Supplier. We'll flag you when a vendor's looking for exactly what you offer.",
+  },
+  C: {
+    type: 'explorer',
+    reply:
+      "No pressure — you're exploring for now. We'll keep you posted, and you can start referring any time by submitting a lead from a vendor's page.",
+  },
 }
 
 interface WhatsAppWebhookPayload {
@@ -63,7 +86,7 @@ export async function POST(req: Request) {
   for (const message of messages) {
     const from = normalizeWhatsAppNumber(message.from)
     const text = message.text?.body?.trim() ?? ''
-    const keyword = text.toUpperCase().split(/\s+/)[0]
+    const [keyword, secondWord] = text.toUpperCase().split(/\s+/)
 
     const { data: connector } = await supabaseAdmin
       .from('connectors')
@@ -75,6 +98,36 @@ export async function POST(req: Request) {
       ? { data: null }
       : await supabaseAdmin.from('vendors').select('id, name').eq('whatsapp_number', from).maybeSingle()
 
+    let reply: string | null = null
+    let matchedKeyword: string | null = null
+
+    const typeChoice = CONNECTOR_TYPE_REPLIES[keyword]
+    if (typeChoice) {
+      if (connector) {
+        await supabaseAdmin.from('connectors').update({ connector_type: typeChoice.type }).eq('id', connector.id)
+        reply = typeChoice.reply
+      } else {
+        reply = "Reply JOIN first to get your referral code, then we'll ask this again."
+      }
+      matchedKeyword = keyword
+    } else if (keyword === 'JOIN' && secondWord) {
+      // Someone tapped a connector's personal wa.me link, prefilled with
+      // "JOIN <their referral code>" — personalize the reply rather than
+      // falling through to the generic JOIN copy.
+      const { data: referrer } = await supabaseAdmin
+        .from('connectors')
+        .select('name')
+        .eq('referral_code', secondWord)
+        .maybeSingle()
+      reply = referrer
+        ? `Hi! ${referrer.name} thinks you'd be a great fit for The Connection Network — refer people you know, get paid when they close. Head to the website and tap 'Become a connector', then enter ${secondWord} as your upline referral code to link up with them.`
+        : KEYWORD_REPLIES.JOIN
+      matchedKeyword = 'JOIN'
+    } else if (KEYWORD_REPLIES[keyword]) {
+      reply = KEYWORD_REPLIES[keyword]
+      matchedKeyword = keyword
+    }
+
     // The ledger is public — every other entry type avoids phone numbers and
     // free-text content, so this one shouldn't be the exception. Record only
     // who/what matched and which keyword (if any), never the raw number or
@@ -82,10 +135,9 @@ export async function POST(req: Request) {
     await appendLedgerEntry('whatsapp_message_received', {
       connectorId: connector?.id ?? null,
       vendorId: vendor?.id ?? null,
-      matchedKeyword: KEYWORD_REPLIES[keyword] ? keyword : null,
+      matchedKeyword,
     })
 
-    const reply = KEYWORD_REPLIES[keyword]
     if (reply) {
       await sendWhatsAppText({ to: from, body: reply })
     }

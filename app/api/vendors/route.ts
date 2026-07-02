@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { hashPassword } from '@/lib/admin/auth'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
+import { notify } from '@/lib/whatsapp/client'
 
 function slugify(name: string) {
   return name
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
     ecoPledgePct,
     lookingFor,
     password,
+    inviteToken,
   } = body
 
   if (!businessName || !contactPerson || !rawWhatsappNumber || !password) {
@@ -72,6 +74,29 @@ export async function POST(req: Request) {
     vendorSlug: vendor.slug,
     name: vendor.name,
   })
+
+  // Vendor arrived via a personalized outreach invite — close the loop on
+  // the invitations tracker and let whoever's WhatsApp received the
+  // original invite know it worked.
+  if (inviteToken) {
+    const { data: invitation } = await supabaseAdmin
+      .from('invitations')
+      .select('id, contact_whatsapp')
+      .eq('invite_token', inviteToken)
+      .maybeSingle()
+
+    if (invitation) {
+      await supabaseAdmin
+        .from('invitations')
+        .update({ status: 'signed', signed_at: new Date().toISOString() })
+        .eq('id', invitation.id)
+
+      await notify(
+        invitation.contact_whatsapp,
+        `You're live on The Connection Network, ${vendor.name}! Connectors can now find you and start referring. Every commission is tracked on our public ledger, so it's fully transparent.`
+      )
+    }
+  }
 
   return NextResponse.json({ slug: vendor.slug })
 }
