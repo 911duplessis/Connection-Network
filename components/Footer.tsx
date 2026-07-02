@@ -9,6 +9,7 @@ export default function Footer() {
           <Link href="/" className="hover:text-white">Home</Link>
           <Link href="/vendors" className="hover:text-white">Vendors</Link>
           <Link href="/ledger" className="hover:text-white">Public Ledger</Link>
+          <Link href="/help" className="hover:text-white">Help</Link>
           <Link href="/guide/whatsapp-setup" className="hover:text-white">WhatsApp Setup Guide</Link>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { hashPassword } from '@/lib/admin/auth'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 import { notify } from '@/lib/whatsapp/client'
+import { sendEmail } from '@/lib/email/client'
 
 function slugify(name: string) {
   return name
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
     businessName,
     contactPerson,
     whatsappNumber: rawWhatsappNumber,
+    email,
     website,
     tier1Pct,
     tier1FlatRand,
@@ -52,6 +54,7 @@ export async function POST(req: Request) {
       name: businessName,
       contact_person: contactPerson,
       whatsapp_number: whatsappNumber,
+      email: email || null,
       website: website || null,
       tier1_pct: tier1Pct ? Number(tier1Pct) : 5,
       tier1_flat_cents: tier1FlatRand ? Math.round(Number(tier1FlatRand) * 100) : 0,
@@ -79,14 +82,40 @@ export async function POST(req: Request) {
   await notify(
     vendor.whatsapp_number,
     `Hi ${vendor.contact_person}, your vendor listing for ${vendor.name} has been submitted to The Connection Network. ` +
-      `We'll review and activate it shortly. Preview your page here: ${appUrl}/vendors/${vendor.slug}`
+      `We'll review and activate it shortly. Reference: ${vendor.slug}. Preview your page: ${appUrl}/vendors/${vendor.slug}`
   )
 
   await notify(
     process.env.ADMIN_WHATSAPP_NUMBER,
     `New vendor sign-up: ${vendor.name} (${vendor.contact_person}, ${vendor.whatsapp_number}). ` +
-      `Activate their listing in the admin dashboard: ${appUrl}/admin`
+      `Activate their listing: ${appUrl}/admin`
   )
+
+  await sendEmail({
+    to: vendor.email,
+    subject: `Vendor sign-up received — ref: ${vendor.slug}`,
+    html: `<p>Hi ${vendor.contact_person},</p>
+<p>Your vendor listing for <strong>${vendor.name}</strong> has been submitted to The Connection Network.</p>
+<p><strong>Your reference number: ${vendor.slug}</strong></p>
+<p>We'll review and activate your listing shortly. You'll receive another email (and a WhatsApp message once our API is active) when you go live.</p>
+<p>In the meantime, you can preview your page: <a href="${appUrl}/vendors/${vendor.slug}">${appUrl}/vendors/${vendor.slug}</a></p>
+<p>You can also log in to your vendor dashboard at any time: <a href="${appUrl}/vendor-login">${appUrl}/vendor-login</a></p>
+<p>— The Connection Network</p>`,
+  })
+
+  await sendEmail({
+    to: process.env.ADMIN_EMAIL,
+    subject: `New vendor sign-up: ${vendor.name}`,
+    html: `<p>New vendor sign-up received.</p>
+<ul>
+<li><strong>Business:</strong> ${vendor.name}</li>
+<li><strong>Contact:</strong> ${vendor.contact_person}</li>
+<li><strong>WhatsApp:</strong> ${vendor.whatsapp_number}</li>
+<li><strong>Email:</strong> ${vendor.email ?? 'not provided'}</li>
+<li><strong>Reference:</strong> ${vendor.slug}</li>
+</ul>
+<p><a href="${appUrl}/admin">Activate their listing in the admin dashboard</a></p>`,
+  })
 
   return NextResponse.json({ slug: vendor.slug })
 }

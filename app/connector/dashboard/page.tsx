@@ -27,6 +27,25 @@ export default function ConnectorDashboardPage() {
   const [result, setResult] = useState<LookupResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [recoverNumber, setRecoverNumber] = useState('')
+  const [recoverSent, setRecoverSent] = useState(false)
+  const [recoverLoading, setRecoverLoading] = useState(false)
+  const [showRecover, setShowRecover] = useState(false)
+
+  async function handleRecover(e: React.FormEvent) {
+    e.preventDefault()
+    setRecoverLoading(true)
+    try {
+      await fetch('/api/connector/recover-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ whatsappNumber: recoverNumber }),
+      })
+      setRecoverSent(true)
+    } finally {
+      setRecoverLoading(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -157,6 +176,39 @@ export default function ConnectorDashboardPage() {
           {loading ? 'Looking up...' : 'View my dashboard'}
         </button>
       </form>
+
+      <div className="mt-8 border-t border-white/10 pt-6">
+        <button
+          onClick={() => setShowRecover(!showRecover)}
+          className="text-sm text-cobalt underline"
+        >
+          Forgot your referral code?
+        </button>
+        {showRecover && (
+          recoverSent ? (
+            <p className="mt-3 text-sm text-white/60">
+              If that number is registered, we&apos;ve sent your code to your WhatsApp and email. Check both.
+            </p>
+          ) : (
+            <form onSubmit={handleRecover} className="mt-3 flex gap-2">
+              <input
+                required
+                placeholder="Your WhatsApp number (27...)"
+                value={recoverNumber}
+                onChange={(e) => setRecoverNumber(e.target.value)}
+                className="flex-1 rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={recoverLoading}
+                className="rounded-md bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20 disabled:opacity-50"
+              >
+                {recoverLoading ? '...' : 'Send'}
+              </button>
+            </form>
+          )
+        )}
+      </div>
     </main>
   )
 }
