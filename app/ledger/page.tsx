@@ -48,15 +48,24 @@ export default function LedgerPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Public ledger</h1>
+      <p className="text-xs font-semibold uppercase tracking-widest text-gold">Trust layer</p>
+      <h1 className="mt-3 text-3xl font-bold">Public ledger</h1>
+      <p className="mt-4 text-white/65">
+        Every join, referral, payout, eco pledge, and review on The Connection Network is
+        appended here — permanently. Each entry is cryptographically linked (SHA-256) to the one
+        before it. Alter or delete any record and the chain breaks in a way that anyone can detect,
+        with no admin access required.
+      </p>
+
+      <div className="mt-6 flex flex-wrap items-center gap-4">
         <button
           onClick={handleVerify}
           disabled={verifying}
-          className="rounded-md border border-white/20 px-4 py-2 text-sm disabled:opacity-50"
+          className="rounded-lg bg-gold/10 px-5 py-2.5 text-sm font-semibold text-gold ring-1 ring-gold/30 hover:bg-gold/15 disabled:opacity-50"
         >
-          {verifying ? 'Verifying...' : 'Verify chain integrity'}
+          {verifying ? 'Verifying...' : '→ Verify chain integrity yourself'}
         </button>
+        <p className="text-xs text-white/30">No login needed · runs on the database in seconds</p>
       </div>
 
       {verification && (
@@ -66,8 +75,8 @@ export default function LedgerPage() {
           }`}
         >
           {verification.valid
-            ? `Chain verified intact across ${verification.totalEntries} entries.`
-            : `Chain broken at entry #${verification.brokenAtSeq}.`}
+            ? `✓ Chain intact — all ${verification.totalEntries} entries verified. No record has been altered or deleted.`
+            : `✗ Chain broken at entry #${verification.brokenAtSeq} — a record has been tampered with.`}
         </div>
       )}
 
