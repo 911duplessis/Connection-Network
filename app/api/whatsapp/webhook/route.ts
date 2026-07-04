@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
-import { sendWhatsAppText } from '@/lib/whatsapp/client'
+import { sendWhatsAppText, notify } from '@/lib/whatsapp/client'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 import { verifyWebhookSignature } from '@/lib/whatsapp/webhook'
+import { detectCategory, detectLocation } from '@/lib/routing/detect'
+import { findMatchingVendor } from '@/lib/routing/match'
+import { UNASSIGNED_CONNECTOR_CODE } from '@/lib/routing/constants'
 
 // Meta's webhook handshake: https://developers.facebook.com/docs/graph-api/webhooks/getting-started
 export async function GET(req: Request) {
@@ -126,6 +129,67 @@ export async function POST(req: Request) {
     } else if (KEYWORD_REPLIES[keyword]) {
       reply = KEYWORD_REPLIES[keyword]
       matchedKeyword = keyword
+    } else if (!connector && !vendor && text.length > 0) {
+      // Not a recognized keyword and not from an existing connector/vendor —
+      // treat this as a raw "I need X" request. MVP routing engine:
+      // deterministic category(+location) match via lib/routing/, falling
+      // back to the unassigned bucket for manual triage if nothing matches.
+      const category = detectCategory(text)
+      const location = detectLocation(text)
+      const match = await findMatchingVendor({ category, location })
+
+      const { data: unassignedConnector } = await supabaseAdmin
+        .from('connectors')
+        .select('id')
+        .eq('referral_code', UNASSIGNED_CONNECTOR_CODE)
+        .maybeSingle()
+
+      if (unassignedConnector) {
+        const { data: newReferral } = await supabaseAdmin
+          .from('referrals')
+          .insert({
+            connector_id: unassignedConnector.id,
+            vendor_id: match.vendorId,
+            lead_name: 'WhatsApp request',
+            lead_contact: from,
+            note: text,
+            category,
+            location,
+            source: 'whatsapp_request',
+          })
+          .select('id, vendor_id, vendors(name, whatsapp_number)')
+          .single()
+
+        if (newReferral) {
+          try {
+            await appendLedgerEntry('referral_submitted', {
+              referralId: newReferral.id,
+              connectorId: unassignedConnector.id,
+              vendorId: newReferral.vendor_id,
+              source: 'whatsapp_request',
+            })
+          } catch (err) {
+            console.error('[whatsapp] ledger append failed for request capture', err)
+          }
+
+          const matchedVendor = newReferral.vendors as unknown as {
+            name: string
+            whatsapp_number: string | null
+          } | null
+
+          if (match.matchedOn !== 'unassigned' && matchedVendor) {
+            await notify(
+              matchedVendor.whatsapp_number,
+              `New request via WhatsApp: "${text}" — from ${from}. Routed to you automatically, reply to follow up.`
+            )
+          }
+
+          reply =
+            match.matchedOn === 'unassigned'
+              ? "Got it — we're finding the right match for you and will be in touch shortly."
+              : "Got it — we're connecting you with the right team for this. They'll be in touch shortly."
+        }
+      }
     }
 
     // The ledger is public — every other entry type avoids phone numbers and

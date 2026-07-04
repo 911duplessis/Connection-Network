@@ -15,6 +15,10 @@ export default async function AdminPage() {
     .select('id, name, slug, whatsapp_number, active')
     .order('created_at', { ascending: false })
 
+  const activeVendorOptions = (vendors ?? [])
+    .filter((v) => v.active)
+    .map((v) => ({ id: v.id, name: v.name }))
+
   return (
     <main className="mx-auto max-w-5xl px-6 py-12">
       <div className="flex items-center justify-between">
@@ -69,7 +73,7 @@ export default async function AdminPage() {
           </thead>
           <tbody>
             {referrals?.map((r) => (
-              <ReferralRow key={r.id} referral={r} />
+              <ReferralRow key={r.id} referral={r} vendors={activeVendorOptions} />
             ))}
             {referrals?.length === 0 && (
               <tr>

@@ -2,15 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-
-const CATEGORIES = [
-  'Landscaping & Turf',
-  'Property & Rentals',
-  'Home Services & Trades',
-  'Professional Services',
-  'Events & Hospitality',
-  'Other',
-]
+import { CATEGORIES } from '@/lib/routing/categories'
 
 const PHASES = [
   { value: '', label: 'No phase' },
@@ -23,7 +15,7 @@ export default function InvitationForm() {
   const router = useRouter()
   const [businessName, setBusinessName] = useState('')
   const [contactWhatsapp, setContactWhatsapp] = useState('')
-  const [category, setCategory] = useState(CATEGORIES[0])
+  const [category, setCategory] = useState<string>(CATEGORIES[0])
   const [marketPhase, setMarketPhase] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
