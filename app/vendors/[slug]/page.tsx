@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ReferralForm from './ReferralForm'
@@ -20,6 +21,15 @@ export default async function VendorPage({ params }: { params: Promise<{ slug: s
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
+      {!vendor.active && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-gold">
+          <Image src="/tcn-logo.jpg" alt="" width={24} height={24} className="rounded" />
+          <span>
+            This is a preview of your page. It isn&apos;t public yet — an admin still needs to activate your
+            listing before it appears on the vendor directory.
+          </span>
+        </div>
+      )}
       <h1 className="text-2xl font-bold">{vendor.name}</h1>
       {avgRating && (
         <p className="mt-1 text-white/70">

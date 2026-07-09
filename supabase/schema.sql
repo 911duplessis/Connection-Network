@@ -21,6 +21,10 @@ create table if not exists vendors (
   eco_pledge_pct numeric(5,2) not null default 0,           -- % of profit pledged per sale (community/eco fund)
   eco_practices text,
   active boolean not null default true,
+  -- self-service onboarding (vendors who sign up via /vendors/signup instead of being seeded)
+  contact_person text,
+  looking_for text,            -- what kind of leads this vendor wants
+  password_hash text,          -- set at signup; lets the vendor log in to their own dashboard
   created_at timestamptz default now() not null
 );
 
@@ -70,7 +74,8 @@ create table if not exists ledger_entries (
     check (entry_type in (
       'connector_joined','referral_submitted','referral_won',
       'commission_tier1_paid','commission_tier2_paid',
-      'eco_pledge_honoured','review_submitted'
+      'eco_pledge_honoured','review_submitted',
+      'vendor_joined','agreement_signed','whatsapp_message_received'
     )),
   payload jsonb not null,
   payload_hash text not null,

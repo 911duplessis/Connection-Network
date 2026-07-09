@@ -52,25 +52,62 @@ data instead of hand-authored JSON per deal.
   tamper-evident log rather than a real blockchain, so there are no wallets,
   no gas fees, and no crypto onboarding for WhatsApp-based connectors.
 
+## Core features
+
+- **Vendor self-signup** (`/vendors/signup`) — any business can list itself,
+  set its own reward terms, and is created `active: false` pending admin
+  approval (toggle from `/admin`).
+- **Vendor login + dashboard** (`/vendor-login`, `/vendor/dashboard`) — each
+  vendor gets a password-protected session (same SHA-256 cookie pattern as
+  admin) scoped to just their own referrals; they can update status and
+  trigger commission payouts the same way admins do.
+- **Connector dashboard** (`/connector/dashboard`) — no password: a
+  connector looks themselves up with the WhatsApp number + referral code
+  they joined with, and sees their referrals, Tier 1 earnings, and Tier 2
+  override earnings.
+- **Partner agreement signing** — built into `/join`: a connector reads the
+  network-wide terms and checks a box before submitting, which sets
+  `agreement_signed_at` and appends an `agreement_signed` ledger entry.
+- **WhatsApp inbound webhook** (`/api/whatsapp/webhook`) — ready to go live
+  the moment Meta credentials are set; see `/guide/whatsapp-setup` for the
+  full walkthrough.
+- **Global navigation** — every page links back to Home, Vendors, Become a
+  Connector, Vendor Sign Up, the Public Ledger, and Vendor/Admin login, so
+  there are no dead ends.
+
 ## Architecture
 
 ```
 app/
-  page.tsx                 network landing page
-  join/page.tsx             connector signup (WhatsApp number + optional upline code)
-  vendors/page.tsx          public vendor directory
-  vendors/[slug]/page.tsx   vendor profile: reward terms, eco pledge, reviews, refer-a-lead form
-  ledger/page.tsx           public transparency feed + "verify chain" button
+  page.tsx                  network landing page
+  join/page.tsx              connector signup (WhatsApp number + optional upline code + agreement)
+  vendors/page.tsx           public vendor directory
+  vendors/signup/page.tsx     vendor self-signup form
+  vendors/[slug]/page.tsx    vendor profile: reward terms, eco pledge, reviews, refer-a-lead form
+  vendor-login/page.tsx      vendor login
+  vendor/dashboard/page.tsx  per-vendor referral dashboard (session-scoped)
+  connector/dashboard/page.tsx  connector lookup dashboard (WhatsApp number + referral code)
+  guide/whatsapp-setup/page.tsx  plain-language Meta WhatsApp Cloud API setup guide
+  ledger/page.tsx            public transparency feed + "verify chain" button
+  admin/page.tsx             admin dashboard: vendor approvals + all referrals
   api/
-    connectors/route.ts            POST — join the network, generates a referral code
-    referrals/route.ts             POST — connector submits a lead to a vendor
-    referrals/[id]/status/route.ts PATCH — vendor updates status; "won" triggers the
-                                    2-tier commission calculation and ledger entries
-    reviews/route.ts               POST — review, appended to the ledger before being stored
-    ledger/route.ts                GET — public ledger feed
-    ledger/verify/route.ts         GET — recomputes and verifies the whole chain
+    connectors/route.ts             POST — join the network, generates a referral code
+    vendors/route.ts                POST — vendor self-signup
+    vendor/login/route.ts           POST — vendor session login
+    vendor/logout/route.ts          POST — vendor session logout
+    admin/vendors/[id]/toggle/route.ts  PATCH — admin activates/deactivates a vendor
+    connector/lookup/route.ts       POST — connector dashboard lookup
+    referrals/route.ts              POST — connector submits a lead to a vendor
+    referrals/[id]/status/route.ts  PATCH — admin or matching vendor updates status; "won"
+                                     triggers the 2-tier commission calculation and ledger entries
+    reviews/route.ts                POST — review, appended to the ledger before being stored
+    ledger/route.ts                 GET — public ledger feed
+    ledger/verify/route.ts          GET — recomputes and verifies the whole chain
+    whatsapp/webhook/route.ts       GET (Meta verify handshake) / POST (inbound messages)
 lib/
   supabase.ts              browser (anon) + admin (service role) clients
+  admin/auth.ts             admin session cookie (SHA-256 signed)
+  vendor/auth.ts            vendor session cookie (SHA-256 signed, per-vendor)
   ledger/
     hashChain.ts            appendLedgerEntry() — calls the Postgres function
     verify.ts                verifyLedgerChain() — calls verify_ledger_chain()
@@ -78,8 +115,11 @@ lib/
   commission/
     calc.ts                  calculateCommission() — pure, no DB/DOM, mirrors
                               ENGINCONFIGURATION's calc.js portability principle
+  whatsapp/
+    client.ts                 sendWhatsAppText() / notify() — outbound Meta Cloud API calls
 supabase/
   schema.sql                tables, RLS, the hash-chain Postgres functions
+  migration_0002_self_service.sql  idempotent migration for already-deployed instances
 scripts/
   seed-primeturf.ts          seeds PrimeTurf as the first vendor with its real terms
 ```
@@ -132,6 +172,20 @@ initiate (referral/payout notifications), Meta requires a pre-approved
 **message template** for reliable delivery outside that window — create
 one under WhatsApp → Message Templates in Meta Business Manager once
 you're ready to go beyond testing.
+
+For the full step-by-step walkthrough (Business verification, generating a
+permanent token, wiring the webhook), see **`/guide/whatsapp-setup`** on the
+live site — it's written for non-technical setup, explicitly distinguishes
+this from the unrelated "Meta Verified" badge, and links straight to the
+relevant Meta for Developers pages. The inbound webhook
+(`/api/whatsapp/webhook`) is already built and does the Meta verify-token
+handshake plus basic keyword routing (`CONNECT`, `JOIN`, `READY`, etc.); it
+activates automatically once `WHATSAPP_ACCESS_TOKEN`,
+`WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, and `WHATSAPP_VERIFY_TOKEN`
+are set. `WHATSAPP_APP_SECRET` is required for the webhook to accept any
+inbound message — it verifies Meta's `X-Hub-Signature-256` header so the
+endpoint can't be used to inject forged events into the public ledger; the
+webhook rejects all POSTs with 401 until it's set.
 
 ## Deployment
 

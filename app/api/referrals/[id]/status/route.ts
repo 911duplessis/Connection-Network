@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { calculateCommission } from '@/lib/commission/calc'
 import { notify } from '@/lib/whatsapp/client'
+import { hashPassword, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
+import { VENDOR_SESSION_COOKIE, verifyVendorSession } from '@/lib/vendor/auth'
 
 function formatAmount(cents: number, currency: string): string {
   return `${(cents / 100).toFixed(2)} ${currency}`
@@ -21,6 +24,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   if (status === 'won' && !jobValueCents) {
     return NextResponse.json({ error: 'jobValueCents is required when status is won' }, { status: 400 })
+  }
+
+  const { data: existing } = await supabaseAdmin
+    .from('referrals')
+    .select('vendor_id, vendors(password_hash)')
+    .eq('id', id)
+    .single()
+
+  if (!existing) {
+    return NextResponse.json({ error: 'Referral not found' }, { status: 404 })
+  }
+
+  const cookieStore = await cookies()
+  const adminCookie = cookieStore.get(ADMIN_SESSION_COOKIE)?.value
+  const isAdmin = !!adminCookie && adminCookie === (await hashPassword(process.env.ADMIN_PASSWORD ?? ''))
+
+  let isVendor = false
+  if (!isAdmin) {
+    const vendorCookie = cookieStore.get(VENDOR_SESSION_COOKIE)?.value
+    const vendorRecord = existing.vendors as unknown as { password_hash: string | null } | null
+    const verifiedVendorId = await verifyVendorSession(vendorCookie, vendorRecord?.password_hash ?? null)
+    isVendor = verifiedVendorId === existing.vendor_id
+  }
+
+  if (!isAdmin && !isVendor) {
+    return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
   }
 
   const { data: referral, error: referralError } = await supabaseAdmin

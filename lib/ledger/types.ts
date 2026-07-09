@@ -6,3 +6,6 @@ export type LedgerEntryType =
   | 'commission_tier2_paid'
   | 'eco_pledge_honoured'
   | 'review_submitted'
+  | 'vendor_joined'
+  | 'agreement_signed'
+  | 'whatsapp_message_received'
