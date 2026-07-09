@@ -6,8 +6,10 @@ import Link from 'next/link'
 export default function JoinPage() {
   const [name, setName] = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
+  const [email, setEmail] = useState('')
   const [uplineReferralCode, setUplineReferralCode] = useState('')
   const [agreementAccepted, setAgreementAccepted] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [result, setResult] = useState<{ referralCode: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -23,6 +25,7 @@ export default function JoinPage() {
         body: JSON.stringify({
           name,
           whatsappNumber,
+          email: email || undefined,
           uplineReferralCode: uplineReferralCode || undefined,
           agreementAccepted,
         }),
@@ -40,13 +43,43 @@ export default function JoinPage() {
   if (result) {
     return (
       <main className="mx-auto max-w-lg px-6 py-16 text-center">
-        <h1 className="text-2xl font-bold">You're in.</h1>
-        <p className="mt-4 text-white/70">Your referral code is:</p>
-        <p className="mt-2 text-3xl font-bold text-gold">{result.referralCode}</p>
-        <p className="mt-6 text-sm text-white/60">
+        <h1 className="text-2xl font-bold">You&apos;re in.</h1>
+
+        <div className="mt-6 rounded-lg border border-gold/40 bg-gold/10 px-6 py-5">
+          <p className="text-xs uppercase tracking-widest text-white/50">Your referral code</p>
+          <p className="mt-2 text-4xl font-bold tracking-widest text-gold">{result.referralCode}</p>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(result.referralCode)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 2000)
+            }}
+            className="mt-3 rounded bg-white/10 px-4 py-1 text-xs text-white/70 hover:bg-white/20"
+          >
+            {copied ? 'Copied!' : 'Copy code'}
+          </button>
+        </div>
+
+        <p className="mt-4 text-sm text-white/60">
+          Save this code — you&apos;ll need it to log in to your dashboard.
+          {email ? ' A confirmation email has been sent to ' + email + '.' : ' We recommend saving this page or taking a screenshot.'}
+        </p>
+        <p className="mt-4 text-sm text-white/60">
           Share this code with people you recruit as connectors. When they join with it, you become
-          their upline and automatically earn a Tier 2 override on every commission they earn — on
-          top of your own Tier 1 referrals.
+          their upline and earn a Tier 2 override on every commission they earn.
+        </p>
+
+        <Link
+          href="/connector/dashboard"
+          className="mt-6 inline-block w-full rounded-md bg-cobalt px-6 py-3 font-semibold text-white"
+        >
+          Go to my dashboard
+        </Link>
+        <p className="mt-3 text-sm text-white/50">
+          Need help?{' '}
+          <Link href="/help" className="text-cobalt underline">
+            Visit the help page
+          </Link>
         </p>
       </main>
     )
@@ -75,6 +108,17 @@ export default function JoinPage() {
             value={whatsappNumber}
             onChange={(e) => setWhatsappNumber(e.target.value)}
             placeholder="27..."
+            className="mt-1 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-white/70">
+            Email address <span className="text-white/40">(optional — for confirmation &amp; code recovery)</span>
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             className="mt-1 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2"
           />
         </div>
