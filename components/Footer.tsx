@@ -11,6 +11,9 @@ export default function Footer() {
           <Link href="/ledger" className="hover:text-white">Public Ledger</Link>
           <Link href="/help" className="hover:text-white">Help</Link>
           <Link href="/guide/whatsapp-setup" className="hover:text-white">WhatsApp Setup Guide</Link>
+          <Link href="/partner-agreement" className="hover:text-white">Partner Agreement</Link>
+          <Link href="/terms" className="hover:text-white">Terms</Link>
+          <Link href="/guide/whatsapp-setup" className="hover:text-white">WhatsApp Setup</Link>
         </div>
       </div>
     </footer>

@@ -175,12 +175,17 @@ you're ready to go beyond testing.
 
 For the full step-by-step walkthrough (Business verification, generating a
 permanent token, wiring the webhook), see **`/guide/whatsapp-setup`** on the
-live site — it's written for non-technical setup and links straight to the
+live site — it's written for non-technical setup, explicitly distinguishes
+this from the unrelated "Meta Verified" badge, and links straight to the
 relevant Meta for Developers pages. The inbound webhook
 (`/api/whatsapp/webhook`) is already built and does the Meta verify-token
 handshake plus basic keyword routing (`CONNECT`, `JOIN`, `READY`, etc.); it
 activates automatically once `WHATSAPP_ACCESS_TOKEN`,
-`WHATSAPP_PHONE_NUMBER_ID`, and `WHATSAPP_VERIFY_TOKEN` are set.
+`WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, and `WHATSAPP_VERIFY_TOKEN`
+are set. `WHATSAPP_APP_SECRET` is required for the webhook to accept any
+inbound message — it verifies Meta's `X-Hub-Signature-256` header so the
+endpoint can't be used to inject forged events into the public ledger; the
+webhook rejects all POSTs with 401 until it's set.
 
 ## Deployment
 
