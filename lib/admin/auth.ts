@@ -1,8 +1,5 @@
-export async function hashPassword(password: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
 export const ADMIN_SESSION_COOKIE = 'admin_session'
+
+// Admin sessions are now signed JWTs (see lib/auth/session). Re-exported here so
+// existing imports from '@/lib/admin/auth' keep working.
+export { createAdminToken, verifyAdminToken } from '@/lib/auth/session'

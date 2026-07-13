@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
-import { hashPassword } from '@/lib/admin/auth'
+import { hashPassword } from '@/lib/auth/password'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 import { notify } from '@/lib/whatsapp/client'
 import { sendEmail } from '@/lib/email/client'

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
-import { hashPassword } from '@/lib/admin/auth'
+import { hashPassword } from '@/lib/auth/password'
 
 export async function POST(req: Request) {
   const { whatsappNumber: raw, otp, password } = await req.json()
