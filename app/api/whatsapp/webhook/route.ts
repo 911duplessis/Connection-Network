@@ -58,7 +58,7 @@ interface WhatsAppWebhookPayload {
   entry?: Array<{
     changes?: Array<{
       value?: {
-        messages?: Array<{ from: string; text?: { body: string } }>
+        messages?: Array<{ id?: string; from: string; text?: { body: string } }>
       }
     }>
   }>
@@ -87,6 +87,18 @@ export async function POST(req: Request) {
   ) ?? []
 
   for (const message of messages) {
+    // Idempotency: Meta re-delivers a webhook if we don't 200 fast enough, so
+    // processing the same message twice would create duplicate referrals and
+    // duplicate ledger entries. Claim each message id exactly once. If the
+    // dedup table is missing (migration not applied), inserting fails with a
+    // non-duplicate error and we fall through — process as before.
+    if (message.id) {
+      const { error: claimError } = await supabaseAdmin
+        .from('processed_whatsapp_messages')
+        .insert({ message_id: message.id })
+      if (claimError?.code === '23505') continue // already processed
+    }
+
     const from = normalizeWhatsAppNumber(message.from)
     const text = message.text?.body?.trim() ?? ''
     const [keyword, secondWord] = text.toUpperCase().split(/\s+/)
