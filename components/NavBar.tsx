@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/ledger', label: 'Public Ledger' },
   { href: '/connector/dashboard', label: 'Connector Login' },
   { href: '/vendor-login', label: 'Vendor Login' },
+  { href: '/help', label: 'Help' },
 ]
 
 export default function NavBar() {
