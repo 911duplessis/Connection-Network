@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { calculateCommission } from '@/lib/commission/calc'
 import { notify } from '@/lib/whatsapp/client'
-import { hashPassword, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
+import { ADMIN_SESSION_COOKIE, verifyAdminToken } from '@/lib/admin/auth'
 import { VENDOR_SESSION_COOKIE, verifyVendorSession } from '@/lib/vendor/auth'
 import { maybePromoteConnectorGrade, overridePctForGrade } from '@/lib/connectors/grade'
 
@@ -39,7 +39,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const cookieStore = await cookies()
   const adminCookie = cookieStore.get(ADMIN_SESSION_COOKIE)?.value
-  const isAdmin = !!adminCookie && adminCookie === (await hashPassword(process.env.ADMIN_PASSWORD ?? ''))
+  const isAdmin = await verifyAdminToken(adminCookie)
 
   let isVendor = false
   if (!isAdmin) {
