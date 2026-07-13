@@ -4,7 +4,6 @@ import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { hashPassword } from '@/lib/admin/auth'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 import { notify } from '@/lib/whatsapp/client'
-import { sendEmail } from '@/lib/email/client'
 
 function slugify(name: string) {
   return name
@@ -22,12 +21,15 @@ export async function POST(req: Request) {
     whatsappNumber: rawWhatsappNumber,
     email,
     website,
+    category,
+    location,
     tier1Pct,
     tier1FlatRand,
     tier2OverridePct,
     ecoPledgePct,
     lookingFor,
     password,
+    inviteToken,
   } = body
 
   if (!businessName || !contactPerson || !rawWhatsappNumber || !password) {
@@ -56,6 +58,8 @@ export async function POST(req: Request) {
       whatsapp_number: whatsappNumber,
       email: email || null,
       website: website || null,
+      category: category || null,
+      location: location || null,
       tier1_pct: tier1Pct ? Number(tier1Pct) : 5,
       tier1_flat_cents: tier1FlatRand ? Math.round(Number(tier1FlatRand) * 100) : 0,
       tier2_override_pct: tier2OverridePct ? Number(tier2OverridePct) : 10,
@@ -77,45 +81,28 @@ export async function POST(req: Request) {
     name: vendor.name,
   })
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://connection-network.vercel.app'
+  // Vendor arrived via a personalized outreach invite — close the loop on
+  // the invitations tracker and let whoever's WhatsApp received the
+  // original invite know it worked.
+  if (inviteToken) {
+    const { data: invitation } = await supabaseAdmin
+      .from('invitations')
+      .select('id, contact_whatsapp')
+      .eq('invite_token', inviteToken)
+      .maybeSingle()
 
-  await notify(
-    vendor.whatsapp_number,
-    `Hi ${vendor.contact_person}, your vendor listing for ${vendor.name} has been submitted to The Connection Network. ` +
-      `We'll review and activate it shortly. Reference: ${vendor.slug}. Preview your page: ${appUrl}/vendors/${vendor.slug}`
-  )
+    if (invitation) {
+      await supabaseAdmin
+        .from('invitations')
+        .update({ status: 'signed', signed_at: new Date().toISOString() })
+        .eq('id', invitation.id)
 
-  await notify(
-    process.env.ADMIN_WHATSAPP_NUMBER,
-    `New vendor sign-up: ${vendor.name} (${vendor.contact_person}, ${vendor.whatsapp_number}). ` +
-      `Activate their listing: ${appUrl}/admin`
-  )
-
-  await sendEmail({
-    to: vendor.email,
-    subject: `Vendor sign-up received — ref: ${vendor.slug}`,
-    html: `<p>Hi ${vendor.contact_person},</p>
-<p>Your vendor listing for <strong>${vendor.name}</strong> has been submitted to The Connection Network.</p>
-<p><strong>Your reference number: ${vendor.slug}</strong></p>
-<p>We'll review and activate your listing shortly. You'll receive another email (and a WhatsApp message once our API is active) when you go live.</p>
-<p>In the meantime, you can preview your page: <a href="${appUrl}/vendors/${vendor.slug}">${appUrl}/vendors/${vendor.slug}</a></p>
-<p>You can also log in to your vendor dashboard at any time: <a href="${appUrl}/vendor-login">${appUrl}/vendor-login</a></p>
-<p>— The Connection Network</p>`,
-  })
-
-  await sendEmail({
-    to: process.env.ADMIN_EMAIL,
-    subject: `New vendor sign-up: ${vendor.name}`,
-    html: `<p>New vendor sign-up received.</p>
-<ul>
-<li><strong>Business:</strong> ${vendor.name}</li>
-<li><strong>Contact:</strong> ${vendor.contact_person}</li>
-<li><strong>WhatsApp:</strong> ${vendor.whatsapp_number}</li>
-<li><strong>Email:</strong> ${vendor.email ?? 'not provided'}</li>
-<li><strong>Reference:</strong> ${vendor.slug}</li>
-</ul>
-<p><a href="${appUrl}/admin">Activate their listing in the admin dashboard</a></p>`,
-  })
+      await notify(
+        invitation.contact_whatsapp,
+        `You're live on The Connection Network, ${vendor.name}! Connectors can now find you and start referring. Every commission is tracked on our public ledger, so it's fully transparent.`
+      )
+    }
+  }
 
   return NextResponse.json({ slug: vendor.slug })
 }

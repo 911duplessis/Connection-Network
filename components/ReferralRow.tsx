@@ -12,11 +12,26 @@ interface Referral {
   status: string
   job_value_cents: number | null
   created_at: string
+  category: string | null
+  location: string | null
+  source: string
+  vendor_id: string
   vendors: { name: string; slug: string; currency: string } | null
   connectors: { name: string; whatsapp_number: string } | null
 }
 
-export default function ReferralRow({ referral }: { referral: Referral }) {
+interface VendorOption {
+  id: string
+  name: string
+}
+
+export default function ReferralRow({
+  referral,
+  vendors,
+}: {
+  referral: Referral
+  vendors: VendorOption[]
+}) {
   const router = useRouter()
   const [status, setStatus] = useState(referral.status)
   const [loading, setLoading] = useState(false)
@@ -55,13 +70,62 @@ export default function ReferralRow({ referral }: { referral: Referral }) {
     router.refresh()
   }
 
+  async function reassign(vendorId: string) {
+    if (!vendorId || vendorId === referral.vendor_id) return
+    setLoading(true)
+    setError(null)
+    const res = await fetch(`/api/admin/referrals/${referral.id}/reassign`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vendorId }),
+    })
+    setLoading(false)
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      setError(body?.error || 'Reassign failed')
+      return
+    }
+
+    router.refresh()
+  }
+
   return (
     <tr className="border-t border-white/10">
       <td className="px-4 py-3">
         <div className="font-medium">{referral.lead_name}</div>
         <div className="text-xs text-white/50">{referral.lead_contact}</div>
+        {(referral.category || referral.location) && (
+          <div className="mt-1 text-xs text-white/40">
+            {[referral.category, referral.location].filter(Boolean).join(' · ')}
+          </div>
+        )}
+        {referral.source === 'whatsapp_request' && (
+          <span className="mt-1 inline-block rounded-full bg-cobalt/20 px-2 py-0.5 text-[10px] uppercase text-cobalt">
+            WhatsApp request
+          </span>
+        )}
       </td>
-      <td className="px-4 py-3">{referral.vendors?.name ?? '—'}</td>
+      <td className="px-4 py-3">
+        <div>{referral.vendors?.name ?? '—'}</div>
+        <select
+          value=""
+          disabled={loading}
+          onChange={(e) => {
+            if (e.target.value) reassign(e.target.value)
+          }}
+          className="mt-1 rounded-md border border-white/20 bg-white/5 px-2 py-1 text-xs disabled:opacity-30"
+        >
+          <option value="">Reassign...</option>
+          {vendors
+            .filter((v) => v.id !== referral.vendor_id)
+            .map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+        </select>
+      </td>
       <td className="px-4 py-3">
         <div>{referral.connectors?.name ?? '—'}</div>
         <div className="text-xs text-white/50">{referral.connectors?.whatsapp_number}</div>
