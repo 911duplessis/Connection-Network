@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
-import { hashPassword, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
+import { ADMIN_SESSION_COOKIE, verifyAdminToken } from '@/lib/admin/auth'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 
 async function isAdminRequest(): Promise<boolean> {
   const cookieStore = await cookies()
-  const adminCookie = cookieStore.get(ADMIN_SESSION_COOKIE)?.value
-  return !!adminCookie && adminCookie === (await hashPassword(process.env.ADMIN_PASSWORD ?? ''))
+  return verifyAdminToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value)
 }
 
 export async function POST(req: Request) {

@@ -30,7 +30,9 @@ export default function ReferralRow({
   vendors,
 }: {
   referral: Referral
-  vendors: VendorOption[]
+  // Provided only in the admin dashboard, where reassigning a referral to a
+  // different vendor is allowed. Omitted on the vendor dashboard.
+  vendors?: VendorOption[]
 }) {
   const router = useRouter()
   const [status, setStatus] = useState(referral.status)
@@ -108,23 +110,25 @@ export default function ReferralRow({
       </td>
       <td className="px-4 py-3">
         <div>{referral.vendors?.name ?? '—'}</div>
-        <select
-          value=""
-          disabled={loading}
-          onChange={(e) => {
-            if (e.target.value) reassign(e.target.value)
-          }}
-          className="mt-1 rounded-md border border-white/20 bg-white/5 px-2 py-1 text-xs disabled:opacity-30"
-        >
-          <option value="">Reassign...</option>
-          {vendors
-            .filter((v) => v.id !== referral.vendor_id)
-            .map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}
-              </option>
-            ))}
-        </select>
+        {vendors && vendors.length > 0 && (
+          <select
+            value=""
+            disabled={loading}
+            onChange={(e) => {
+              if (e.target.value) reassign(e.target.value)
+            }}
+            className="mt-1 rounded-md border border-white/20 bg-white/5 px-2 py-1 text-xs disabled:opacity-30"
+          >
+            <option value="">Reassign...</option>
+            {vendors
+              .filter((v) => v.id !== referral.vendor_id)
+              .map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+          </select>
+        )}
       </td>
       <td className="px-4 py-3">
         <div>{referral.connectors?.name ?? '—'}</div>
