@@ -9,6 +9,7 @@ const initial = {
   businessName: '',
   contactPerson: '',
   whatsappNumber: '',
+  email: '',
   website: '',
   category: CATEGORIES[0] as string,
   location: '',
@@ -59,27 +60,42 @@ function VendorSignupForm() {
     return (
       <main className="mx-auto max-w-lg px-6 py-16 text-center">
         <h1 className="text-2xl font-bold">Vendor sign-up received.</h1>
-        <p className="mt-4 text-white/70">
-          We&apos;ll review and activate your listing shortly. Once active, it goes public on the{' '}
-          <Link href="/vendors" className="text-cobalt underline">
-            vendor directory
-          </Link>
-          .
+
+        {slug && (
+          <div className="mt-6 rounded-lg border border-cobalt/40 bg-cobalt/10 px-6 py-4">
+            <p className="text-xs uppercase tracking-widest text-white/50">Your reference number</p>
+            <p className="mt-1 font-mono text-xl font-bold text-cobalt">{slug}</p>
+            <p className="mt-1 text-xs text-white/40">Quote this if you contact support</p>
+          </div>
+        )}
+
+        <p className="mt-6 text-white/70">
+          We&apos;ll review and activate your listing shortly.
+          {form.email
+            ? " You'll receive an email confirmation and another when you go live."
+            : ' Check your WhatsApp for a confirmation once our messaging is active.'}
         </p>
+
         {slug && (
           <Link
             href={`/vendors/${slug}`}
             className="mt-6 inline-block w-full rounded-md bg-cobalt px-6 py-3 font-semibold text-white"
           >
-            Preview your page
+            Preview your listing
           </Link>
         )}
-        <p className="mt-6 text-sm text-white/70">
-          You can{' '}
+        <p className="mt-4 text-sm text-white/70">
           <Link href="/vendor-login" className="text-cobalt underline">
-            sign in to your vendor dashboard
+            Sign in to your vendor dashboard
           </Link>{' '}
-          any time with the WhatsApp number and password you just set, to see referrals and update status.
+          any time with your WhatsApp number and password.
+        </p>
+        <p className="mt-4 text-sm text-white/50">
+          Need help?{' '}
+          <Link href="/help" className="text-cobalt underline">
+            Visit the help page
+          </Link>
+          .
         </p>
       </main>
     )
@@ -119,6 +135,17 @@ function VendorSignupForm() {
             placeholder="27..."
             value={form.whatsappNumber}
             onChange={(e) => set('whatsappNumber', e.target.value)}
+            className="mt-1 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2"
+          />
+        </div>
+        <div>
+          <label className="block text-sm text-white/70">
+            Email address <span className="text-white/40">(recommended — for confirmation &amp; password reset)</span>
+          </label>
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) => set('email', e.target.value)}
             className="mt-1 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2"
           />
         </div>
