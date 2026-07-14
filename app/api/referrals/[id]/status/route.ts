@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { calculateCommission } from '@/lib/commission/calc'
-import { notify } from '@/lib/whatsapp/client'
+import { notify, notifyEvent } from '@/lib/whatsapp/client'
 import { ADMIN_SESSION_COOKIE, verifyAdminToken } from '@/lib/admin/auth'
 import { VENDOR_SESSION_COOKIE, verifyVendorSession } from '@/lib/vendor/auth'
 import { maybePromoteConnectorGrade, overridePctForGrade } from '@/lib/connectors/grade'
@@ -114,10 +114,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     ledger_entry_seq: tier1Entry.seq,
   })
 
-  await notify(
-    connector.whatsapp_number,
-    `Referral won! ${vendor.name} closed your lead for ${formatAmount(jobValueCents, vendor.currency)}. Your commission: ${formatAmount(breakdown.tier1AmountCents, vendor.currency)}.`
-  )
+  // Business-initiated, usually outside the 24h window → prefer an approved
+  // template, fall back to text (see lib/whatsapp/client notifyEvent).
+  await notifyEvent(connector.whatsapp_number, {
+    template: process.env.WHATSAPP_TEMPLATE_REFERRAL_WON || null,
+    bodyParams: [
+      vendor.name,
+      formatAmount(jobValueCents, vendor.currency),
+      formatAmount(breakdown.tier1AmountCents, vendor.currency),
+    ],
+    fallbackText: `Referral won! ${vendor.name} closed your lead for ${formatAmount(jobValueCents, vendor.currency)}. Your commission: ${formatAmount(breakdown.tier1AmountCents, vendor.currency)}.`,
+  })
 
   await maybePromoteConnectorGrade(connector.id, connector.whatsapp_number)
 
@@ -136,10 +143,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ledger_entry_seq: tier2Entry.seq,
     })
 
-    await notify(
-      upline.whatsapp_number,
-      `Override commission earned: a connector in your downline closed a referral via ${vendor.name}. Your Tier 2 override: ${formatAmount(breakdown.tier2AmountCents, vendor.currency)}.`
-    )
+    await notifyEvent(upline.whatsapp_number, {
+      template: process.env.WHATSAPP_TEMPLATE_OVERRIDE_EARNED || null,
+      bodyParams: [vendor.name, formatAmount(breakdown.tier2AmountCents, vendor.currency)],
+      fallbackText: `Override commission earned: a connector in your downline closed a referral via ${vendor.name}. Your Tier 2 override: ${formatAmount(breakdown.tier2AmountCents, vendor.currency)}.`,
+    })
   }
 
   if (vendor.eco_pledge_pct > 0) {
