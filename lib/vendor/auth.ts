@@ -1,4 +1,4 @@
-import { createVendorToken, verifyVendorToken } from '@/lib/auth/session'
+import { createVendorToken, verifyVendorToken, unsafeDecodeVendorId } from '@/lib/auth/session'
 
 export const VENDOR_SESSION_COOKIE = 'vendor_session'
 
@@ -16,3 +16,7 @@ export async function verifyVendorSession(
 ): Promise<string | null> {
   return verifyVendorToken(cookieValue, passwordHash)
 }
+
+// Unverified — only for looking up which vendor's password_hash to check next.
+// See the warning on unsafeDecodeVendorId in lib/auth/session.ts.
+export { unsafeDecodeVendorId }

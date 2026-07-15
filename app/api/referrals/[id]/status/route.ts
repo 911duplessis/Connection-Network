@@ -53,15 +53,39 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
   }
 
-  const { data: referral, error: referralError } = await supabaseAdmin
-    .from('referrals')
-    .update({ status, job_value_cents: status === 'won' ? jobValueCents : undefined })
-    .eq('id', id)
-    .select('*, vendors(*), connectors(*)')
-    .single()
+  // Guard the 'won' transition against double-fires (double-click, network
+  // retry, duplicate API call): only actually update the row if it isn't
+  // already 'won'. Postgres row locking makes this safe under real
+  // concurrency too, not just sequential double-clicks — a second PATCH
+  // blocks on the row lock, then re-evaluates .neq('status','won') against
+  // the now-committed row and matches nothing. Every side effect below
+  // (ledger entries, payouts, billed WhatsApp sends) becomes unreachable on
+  // a repeat call instead of re-firing.
+  const isWonTransition = status === 'won'
 
-  if (referralError || !referral) {
-    return NextResponse.json({ error: referralError?.message || 'Referral not found' }, { status: 400 })
+  let updateQuery = supabaseAdmin
+    .from('referrals')
+    .update({ status, job_value_cents: isWonTransition ? jobValueCents : undefined })
+    .eq('id', id)
+
+  if (isWonTransition) {
+    updateQuery = updateQuery.neq('status', 'won')
+  }
+
+  const { data: referral, error: referralError } = await updateQuery
+    .select('*, vendors(*), connectors(*)')
+    .maybeSingle()
+
+  if (referralError) {
+    return NextResponse.json({ error: referralError.message }, { status: 400 })
+  }
+
+  if (!referral) {
+    if (isWonTransition) {
+      // Referral was already 'won' — not an error, just a no-op repeat call.
+      return NextResponse.json({ referralId: id, status: 'won', alreadyProcessed: true })
+    }
+    return NextResponse.json({ error: 'Referral not found' }, { status: 400 })
   }
 
   if (status !== 'won') {
