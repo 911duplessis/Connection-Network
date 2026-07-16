@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from 'jose'
+import { SignJWT, jwtVerify, decodeJwt } from 'jose'
 import { sha256Hex } from '@/lib/auth/sha256'
 
 // Signed session tokens (HS256 JWTs). The signing key is a server-only secret,
@@ -63,6 +63,22 @@ export async function verifyVendorToken(
     if (!vendorId) return null
     if (payload.ph !== (await passwordFingerprint(currentPasswordHash))) return null
     return vendorId
+  } catch {
+    return null
+  }
+}
+
+// Reads the vendorId claim out of a vendor session token WITHOUT verifying its
+// signature. This exists only to solve the chicken-and-egg problem of needing
+// a vendor's password_hash (to verify the token) before knowing which vendor
+// the token even claims to be. Never treat this as an authorization decision —
+// always follow it with verifyVendorToken() against the fetched password hash,
+// and compare its return value against this claimed id before trusting it.
+export function unsafeDecodeVendorId(token: string | undefined): string | null {
+  if (!token) return null
+  try {
+    const payload = decodeJwt(token)
+    return typeof payload.vendorId === 'string' ? payload.vendorId : null
   } catch {
     return null
   }
