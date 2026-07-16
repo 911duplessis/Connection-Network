@@ -25,15 +25,32 @@ export async function POST(req: Request) {
 
   const whatsappNumber = normalizeWhatsAppNumber(rawWhatsappNumber)
 
-  let uplineConnectorId: string | null = null
-  if (uplineReferralCode) {
-    const { data: upline } = await supabaseAdmin
-      .from('connectors')
-      .select('id')
-      .eq('referral_code', uplineReferralCode)
-      .single()
-    uplineConnectorId = upline?.id ?? null
+  // TCN grows by invitation only — a valid upline referral code is required.
+  // (Root/system connectors, e.g. the UNASSIGNED_CONNECTOR_CODE bucket or a
+  // brand-new region's first connector, are seeded directly via script/DB,
+  // not through this public endpoint — so this doesn't block operational
+  // seeding, only closes the cold/public self-signup path.)
+  if (!uplineReferralCode) {
+    return NextResponse.json(
+      { error: 'An upline referral code is required to join — TCN grows by invitation only.' },
+      { status: 400 }
+    )
   }
+
+  const { data: upline } = await supabaseAdmin
+    .from('connectors')
+    .select('id')
+    .eq('referral_code', uplineReferralCode.trim().toUpperCase())
+    .maybeSingle()
+
+  if (!upline) {
+    return NextResponse.json(
+      { error: "We couldn't find a connector with that referral code. Double-check it with whoever invited you." },
+      { status: 400 }
+    )
+  }
+
+  const uplineConnectorId = upline.id
 
   const referralCode = generateReferralCode(name)
 

@@ -7,6 +7,7 @@ import { verifyWebhookSignature } from '@/lib/whatsapp/webhook'
 import { detectCategory, detectLocation } from '@/lib/routing/detect'
 import { findMatchingVendor } from '@/lib/routing/match'
 import { UNASSIGNED_CONNECTOR_CODE } from '@/lib/routing/constants'
+import { recoverConnectorCode } from '@/lib/connectors/recoverCode'
 
 // Meta's webhook handshake: https://developers.facebook.com/docs/graph-api/webhooks/getting-started
 export async function GET(req: Request) {
@@ -138,6 +139,19 @@ export async function POST(req: Request) {
         ? `Hi! ${referrer.name} thinks you'd be a great fit for The Connection Network — refer people you know, get paid when they close. Head to the website and tap 'Become a connector', then enter ${secondWord} as your upline referral code to link up with them.`
         : KEYWORD_REPLIES.JOIN
       matchedKeyword = 'JOIN'
+    } else if (keyword === 'RESET' || keyword === 'FORGOT') {
+      // Self-service referral-code recovery, straight from WhatsApp — the
+      // only prior path was the web form at /connector/dashboard. `from` is
+      // the sender's own verified WhatsApp number (this webhook's signature
+      // check already proved the request came from Meta, and Meta only
+      // reports a message's `from` as the number that actually sent it), so
+      // revealing whether *this specific* number is registered isn't a new
+      // information leak the way it would be on an anonymous web form.
+      const { found } = await recoverConnectorCode(from)
+      reply = found
+        ? "We just sent your referral code to this WhatsApp number (and by email if we have one on file) — check the message just above."
+        : "We couldn't find a connector account under this number. Reply JOIN to get a referral code, or visit the website and tap 'Become a connector'."
+      matchedKeyword = keyword
     } else if (KEYWORD_REPLIES[keyword]) {
       reply = KEYWORD_REPLIES[keyword]
       matchedKeyword = keyword
@@ -157,7 +171,7 @@ export async function POST(req: Request) {
         .maybeSingle()
 
       if (unassignedConnector) {
-        const { data: newReferral } = await supabaseAdmin
+        const { data: newReferral, error: insertError } = await supabaseAdmin
           .from('referrals')
           .insert({
             connector_id: unassignedConnector.id,
@@ -171,6 +185,20 @@ export async function POST(req: Request) {
           })
           .select('id, vendor_id, vendors(name, whatsapp_number)')
           .single()
+
+        if (insertError) {
+          // Previously silent: on an unmigrated schema (missing category/
+          // location/source columns) this insert fails and the inbound lead
+          // vanished with zero trace. Surface it, and don't leave the sender
+          // hanging even though we couldn't record their request.
+          console.error('[whatsapp] failed to capture request as referral — lead may be lost', {
+            from,
+            category,
+            location,
+            error: insertError.message,
+          })
+          reply = "Got it — we're following up with you shortly."
+        }
 
         if (newReferral) {
           try {

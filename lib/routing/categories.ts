@@ -4,7 +4,12 @@
 export const CATEGORIES = [
   'Landscaping & Turf',
   'Property & Rentals',
-  'Home Services & Trades',
+  'Electrical',
+  'Plumbing',
+  'Roofing',
+  'Mechanical & Auto',
+  'Cleaning Services',
+  'Handyman & General Maintenance',
   'Professional Services',
   'Events & Hospitality',
   'Other',
