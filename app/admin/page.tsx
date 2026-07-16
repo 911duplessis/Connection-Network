@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import Link from 'next/link'
 import ReferralRow from '@/components/ReferralRow'
 import SignOutButton from '@/components/SignOutButton'
 import VendorActivationRow from '@/components/VendorActivationRow'
@@ -14,11 +15,20 @@ export default async function AdminPage() {
     .select('id, name, slug, whatsapp_number, active')
     .order('created_at', { ascending: false })
 
+  const activeVendorOptions = (vendors ?? [])
+    .filter((v) => v.active)
+    .map((v) => ({ id: v.id, name: v.name }))
+
   return (
     <main className="mx-auto max-w-5xl px-6 py-12">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Admin</h1>
-        <SignOutButton logoutUrl="/api/admin/logout" redirectTo="/admin/login" />
+        <div className="flex items-center gap-4">
+          <Link href="/admin/invitations" className="text-sm text-cobalt underline">
+            Outreach invitations
+          </Link>
+          <SignOutButton logoutUrl="/api/admin/logout" redirectTo="/admin/login" />
+        </div>
       </div>
 
       <h2 className="mt-10 text-lg font-semibold text-white/80">Vendor approvals</h2>
@@ -63,7 +73,7 @@ export default async function AdminPage() {
           </thead>
           <tbody>
             {referrals?.map((r) => (
-              <ReferralRow key={r.id} referral={r} />
+              <ReferralRow key={r.id} referral={r} vendors={activeVendorOptions} />
             ))}
             {referrals?.length === 0 && (
               <tr>

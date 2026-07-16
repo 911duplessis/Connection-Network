@@ -26,7 +26,7 @@ export default function JoinPage() {
           name,
           whatsappNumber,
           email: email || undefined,
-          uplineReferralCode: uplineReferralCode || undefined,
+          uplineReferralCode: uplineReferralCode.trim(),
           agreementAccepted,
         }),
       })
@@ -123,8 +123,12 @@ export default function JoinPage() {
           />
         </div>
         <div>
-          <label className="block text-sm text-white/70">Upline referral code (optional)</label>
+          <label className="block text-sm text-white/70">Upline referral code</label>
+          <p className="mt-1 text-xs text-white/50">
+            TCN grows by invitation only — ask the connector who told you about TCN for their code.
+          </p>
           <input
+            required
             value={uplineReferralCode}
             onChange={(e) => setUplineReferralCode(e.target.value)}
             className="mt-1 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2"
@@ -160,7 +164,7 @@ export default function JoinPage() {
         {error && <p className="text-sm text-red-400">{error}</p>}
         <button
           type="submit"
-          disabled={loading || !agreementAccepted}
+          disabled={loading || !agreementAccepted || !uplineReferralCode.trim()}
           className="w-full rounded-md bg-cobalt px-6 py-3 font-semibold text-white disabled:opacity-50"
         >
           {loading ? 'Joining...' : 'Sign agreement & join the network'}

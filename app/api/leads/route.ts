@@ -2,11 +2,9 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { notify } from '@/lib/whatsapp/client'
+import { UNASSIGNED_CONNECTOR_CODE, UNASSIGNED_VENDOR_SLUG } from '@/lib/routing/constants'
 
-const UNASSIGNED_CONNECTOR_CODE = 'DIRECT-UNASSIGNED'
-const UNASSIGNED_VENDOR_SLUG = 'unassigned'
-
-// Public, unauthenticated lead intake. No connector login required — for
+// Public, unauthenticated lead intake. No connector login required -- for
 // leads sourced outside the referral network (e.g. a Facebook post) that
 // need somewhere to land instead of being lost. Always resolves to the
 // DIRECT-UNASSIGNED connector and `unassigned` vendor bucket for manual
