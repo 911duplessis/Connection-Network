@@ -1,14 +1,14 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase'
-import { VENDOR_SESSION_COOKIE, verifyVendorSession } from '@/lib/vendor/auth'
+import { VENDOR_SESSION_COOKIE, verifyVendorSession, unsafeDecodeVendorId } from '@/lib/vendor/auth'
 import ReferralRow from '@/components/ReferralRow'
 import SignOutButton from '@/components/SignOutButton'
 
 export default async function VendorDashboardPage() {
   const cookieStore = await cookies()
   const vendorCookie = cookieStore.get(VENDOR_SESSION_COOKIE)?.value
-  const claimedVendorId = vendorCookie?.split('.')[0]
+  const claimedVendorId = unsafeDecodeVendorId(vendorCookie)
 
   if (!claimedVendorId) {
     redirect('/vendor-login')
@@ -22,7 +22,10 @@ export default async function VendorDashboardPage() {
 
   const verifiedVendorId = await verifyVendorSession(vendorCookie, vendor?.password_hash ?? null)
 
-  if (!verifiedVendorId || !vendor) {
+  // verifiedVendorId is the only trusted identity here (its signature was
+  // checked against vendor.password_hash) — claimedVendorId only picked which
+  // row to fetch. Require them to agree before using either one.
+  if (!verifiedVendorId || !vendor || verifiedVendorId !== vendor.id) {
     redirect('/vendor-login')
   }
 

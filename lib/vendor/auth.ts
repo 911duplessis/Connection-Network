@@ -1,22 +1,22 @@
-import { hashPassword } from '@/lib/admin/auth'
+import { createVendorToken, verifyVendorToken, unsafeDecodeVendorId } from '@/lib/auth/session'
 
 export const VENDOR_SESSION_COOKIE = 'vendor_session'
 
-// Cookie carries the vendor id plus a signature derived from that vendor's
-// current password_hash, so changing the password invalidates old sessions
-// without needing a server-side session table.
+// Backed by signed JWTs (see lib/auth/session). The token embeds a fingerprint
+// of the vendor's current password_hash, so changing the password still
+// invalidates old sessions — but the token itself is signed with a server
+// secret and can no longer be forged from a leaked password hash.
 export async function signVendorSession(vendorId: string, passwordHash: string): Promise<string> {
-  const sig = await hashPassword(`${vendorId}:${passwordHash}`)
-  return `${vendorId}.${sig}`
+  return createVendorToken(vendorId, passwordHash)
 }
 
 export async function verifyVendorSession(
   cookieValue: string | undefined,
   passwordHash: string | null
 ): Promise<string | null> {
-  if (!cookieValue || !passwordHash) return null
-  const [vendorId, sig] = cookieValue.split('.')
-  if (!vendorId || !sig) return null
-  const expected = await hashPassword(`${vendorId}:${passwordHash}`)
-  return sig === expected ? vendorId : null
+  return verifyVendorToken(cookieValue, passwordHash)
 }
+
+// Unverified — only for looking up which vendor's password_hash to check next.
+// See the warning on unsafeDecodeVendorId in lib/auth/session.ts.
+export { unsafeDecodeVendorId }

@@ -9,3 +9,4 @@ export type LedgerEntryType =
   | 'vendor_joined'
   | 'agreement_signed'
   | 'whatsapp_message_received'
+  | 'grade_promoted'

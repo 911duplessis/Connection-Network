@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { CATEGORIES } from '@/lib/routing/categories'
 
 const initial = {
   businessName: '',
@@ -9,6 +11,8 @@ const initial = {
   whatsappNumber: '',
   email: '',
   website: '',
+  category: CATEGORIES[0] as string,
+  location: '',
   tier1Pct: '5',
   tier1FlatRand: '500',
   tier2OverridePct: '10',
@@ -17,7 +21,10 @@ const initial = {
   password: '',
 }
 
-export default function VendorSignupPage() {
+function VendorSignupForm() {
+  const searchParams = useSearchParams()
+  const inviteToken = searchParams.get('invite')
+
   const [form, setForm] = useState(initial)
   const [submitted, setSubmitted] = useState(false)
   const [slug, setSlug] = useState<string | null>(null)
@@ -36,7 +43,7 @@ export default function VendorSignupPage() {
       const res = await fetch('/api/vendors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, inviteToken: inviteToken || undefined }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong')
@@ -152,6 +159,31 @@ export default function VendorSignupPage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
+            <label className="block text-sm text-white/70">Category</label>
+            <select
+              value={form.category}
+              onChange={(e) => set('category', e.target.value)}
+              className="mt-1 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-white/70">Location</label>
+            <input
+              placeholder="e.g. Randburg"
+              value={form.location}
+              onChange={(e) => set('location', e.target.value)}
+              className="mt-1 w-full rounded-md border border-white/20 bg-white/5 px-3 py-2"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
             <label className="block text-sm text-white/70">Referral reward (%)</label>
             <input
               value={form.tier1Pct}
@@ -217,5 +249,13 @@ export default function VendorSignupPage() {
         </button>
       </form>
     </main>
+  )
+}
+
+export default function VendorSignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <VendorSignupForm />
+    </Suspense>
   )
 }

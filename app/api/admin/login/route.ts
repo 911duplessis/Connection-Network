@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { hashPassword, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
+import { ADMIN_SESSION_COOKIE, createAdminToken } from '@/lib/admin/auth'
 
 export async function POST(req: Request) {
   const { password } = await req.json()
@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   }
 
   const res = NextResponse.json({ ok: true })
-  res.cookies.set(ADMIN_SESSION_COOKIE, await hashPassword(password), {
+  res.cookies.set(ADMIN_SESSION_COOKIE, await createAdminToken(), {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',

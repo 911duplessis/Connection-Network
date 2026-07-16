@@ -3,9 +3,10 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { calculateCommission } from '@/lib/commission/calc'
-import { notify } from '@/lib/whatsapp/client'
-import { hashPassword, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
+import { notify, notifyEvent } from '@/lib/whatsapp/client'
+import { ADMIN_SESSION_COOKIE, verifyAdminToken } from '@/lib/admin/auth'
 import { VENDOR_SESSION_COOKIE, verifyVendorSession } from '@/lib/vendor/auth'
+import { maybePromoteConnectorGrade, overridePctForGrade } from '@/lib/connectors/grade'
 
 function formatAmount(cents: number, currency: string): string {
   return `${(cents / 100).toFixed(2)} ${currency}`
@@ -38,7 +39,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const cookieStore = await cookies()
   const adminCookie = cookieStore.get(ADMIN_SESSION_COOKIE)?.value
-  const isAdmin = !!adminCookie && adminCookie === (await hashPassword(process.env.ADMIN_PASSWORD ?? ''))
+  const isAdmin = await verifyAdminToken(adminCookie)
 
   let isVendor = false
   if (!isAdmin) {
@@ -52,15 +53,39 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
   }
 
-  const { data: referral, error: referralError } = await supabaseAdmin
-    .from('referrals')
-    .update({ status, job_value_cents: status === 'won' ? jobValueCents : undefined })
-    .eq('id', id)
-    .select('*, vendors(*), connectors(*)')
-    .single()
+  // Guard the 'won' transition against double-fires (double-click, network
+  // retry, duplicate API call): only actually update the row if it isn't
+  // already 'won'. Postgres row locking makes this safe under real
+  // concurrency too, not just sequential double-clicks — a second PATCH
+  // blocks on the row lock, then re-evaluates .neq('status','won') against
+  // the now-committed row and matches nothing. Every side effect below
+  // (ledger entries, payouts, billed WhatsApp sends) becomes unreachable on
+  // a repeat call instead of re-firing.
+  const isWonTransition = status === 'won'
 
-  if (referralError || !referral) {
-    return NextResponse.json({ error: referralError?.message || 'Referral not found' }, { status: 400 })
+  let updateQuery = supabaseAdmin
+    .from('referrals')
+    .update({ status, job_value_cents: isWonTransition ? jobValueCents : undefined })
+    .eq('id', id)
+
+  if (isWonTransition) {
+    updateQuery = updateQuery.neq('status', 'won')
+  }
+
+  const { data: referral, error: referralError } = await updateQuery
+    .select('*, vendors(*), connectors(*)')
+    .maybeSingle()
+
+  if (referralError) {
+    return NextResponse.json({ error: referralError.message }, { status: 400 })
+  }
+
+  if (!referral) {
+    if (isWonTransition) {
+      // Referral was already 'won' — not an error, just a no-op repeat call.
+      return NextResponse.json({ referralId: id, status: 'won', alreadyProcessed: true })
+    }
+    return NextResponse.json({ error: 'Referral not found' }, { status: 400 })
   }
 
   if (status !== 'won') {
@@ -73,7 +98,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { data: upline } = connector.upline_connector_id
     ? await supabaseAdmin
         .from('connectors')
-        .select('id, whatsapp_number')
+        .select('id, whatsapp_number, grade')
         .eq('id', connector.upline_connector_id)
         .single()
     : { data: null }
@@ -83,7 +108,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     {
       tier1Pct: vendor.tier1_pct,
       tier1FlatCents: vendor.tier1_flat_cents,
-      tier2OverridePct: vendor.tier2_override_pct,
+      // An Active Partner+ upline earns the promoted override on their own
+      // downline's tier-1 commissions, replacing the vendor's default.
+      tier2OverridePct: upline
+        ? overridePctForGrade(upline.grade, vendor.tier2_override_pct)
+        : vendor.tier2_override_pct,
     },
     !!upline
   )
@@ -109,10 +138,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     ledger_entry_seq: tier1Entry.seq,
   })
 
-  await notify(
-    connector.whatsapp_number,
-    `Referral won! ${vendor.name} closed your lead for ${formatAmount(jobValueCents, vendor.currency)}. Your commission: ${formatAmount(breakdown.tier1AmountCents, vendor.currency)}.`
-  )
+  // Business-initiated, usually outside the 24h window → prefer an approved
+  // template, fall back to text (see lib/whatsapp/client notifyEvent).
+  await notifyEvent(connector.whatsapp_number, {
+    template: process.env.WHATSAPP_TEMPLATE_REFERRAL_WON || null,
+    bodyParams: [
+      vendor.name,
+      formatAmount(jobValueCents, vendor.currency),
+      formatAmount(breakdown.tier1AmountCents, vendor.currency),
+    ],
+    fallbackText: `Referral won! ${vendor.name} closed your lead for ${formatAmount(jobValueCents, vendor.currency)}. Your commission: ${formatAmount(breakdown.tier1AmountCents, vendor.currency)}.`,
+  })
+
+  await maybePromoteConnectorGrade(connector.id, connector.whatsapp_number)
 
   if (breakdown.hasTier2 && upline) {
     const tier2Entry = await appendLedgerEntry('commission_tier2_paid', {
@@ -129,10 +167,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ledger_entry_seq: tier2Entry.seq,
     })
 
-    await notify(
-      upline.whatsapp_number,
-      `Override commission earned: a connector in your downline closed a referral via ${vendor.name}. Your Tier 2 override: ${formatAmount(breakdown.tier2AmountCents, vendor.currency)}.`
-    )
+    await notifyEvent(upline.whatsapp_number, {
+      template: process.env.WHATSAPP_TEMPLATE_OVERRIDE_EARNED || null,
+      bodyParams: [vendor.name, formatAmount(breakdown.tier2AmountCents, vendor.currency)],
+      fallbackText: `Override commission earned: a connector in your downline closed a referral via ${vendor.name}. Your Tier 2 override: ${formatAmount(breakdown.tier2AmountCents, vendor.currency)}.`,
+    })
   }
 
   if (vendor.eco_pledge_pct > 0) {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
-import { hashPassword, ADMIN_SESSION_COOKIE } from '@/lib/admin/auth'
+import { ADMIN_SESSION_COOKIE, verifyAdminToken } from '@/lib/admin/auth'
 import { notify } from '@/lib/whatsapp/client'
 import { sendEmail } from '@/lib/email/client'
 
@@ -11,7 +11,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const cookieStore = await cookies()
   const adminCookie = cookieStore.get(ADMIN_SESSION_COOKIE)?.value
-  const isAdmin = !!adminCookie && adminCookie === (await hashPassword(process.env.ADMIN_PASSWORD ?? ''))
+  const isAdmin = await verifyAdminToken(adminCookie)
 
   if (!isAdmin) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
