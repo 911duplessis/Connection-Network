@@ -8,8 +8,11 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
+  // Prisma 7 dropped the separate `directUrl` option; the CLI now runs
+  // migrations against whatever URL is set here. Supabase's pgBouncer
+  // (transaction-mode) pooler doesn't support the session features Migrate
+  // needs, so this must be the session-mode/direct connection string.
   datasource: {
-    url: process.env["DATABASE_URL"],
-    directUrl: process.env["DIRECT_URL"],
+    url: process.env["DIRECT_URL"],
   },
 });
