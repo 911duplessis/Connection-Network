@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "seed:primeturf": "node --env-file=.env.local --import tsx scripts/seed-primeturf.ts",
     "seed:unassigned": "node --env-file=.env.local --import tsx scripts/seed-unassigned.ts",
     "seed:root-connector": "node --env-file=.env.local --import tsx scripts/seed-root-connector.ts"
@@ -15,6 +16,7 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@supabase/supabase-js": "^2.49.0",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "bcryptjs": "^2.4.3",
     "jose": "^5.10.0",

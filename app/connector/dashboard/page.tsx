@@ -82,7 +82,7 @@ export default function ConnectorDashboardPage() {
         <p className="mt-1 text-sm text-white/50">Referral code: {result.connector.referralCode}</p>
         {!result.connector.agreementSigned && (
           <p className="mt-2 text-sm text-gold">
-            You haven't signed the partner agreement yet — do that from your /join confirmation.
+            You haven&apos;t signed the partner agreement yet — do that from your /join confirmation.
           </p>
         )}
 
