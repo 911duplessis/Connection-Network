@@ -23,8 +23,8 @@ export default function TermsPage() {
       <h1 className="mt-3 text-3xl font-bold text-white">Terms of Service</h1>
       <p className="mt-3 text-sm text-white/40">Effective date: {EFFECTIVE_DATE}</p>
       <p className="mt-4 text-sm text-white/65">
-        These Terms of Service govern your use of The Connection Network platform ("TCN", "we",
-        "us"). By registering as a connector or vendor, or by using the platform in any way, you
+        These Terms of Service govern your use of The Connection Network platform (&quot;TCN&quot;, &quot;we&quot;,
+        &quot;us&quot;). By registering as a connector or vendor, or by using the platform in any way, you
         agree to these terms. Jurisdiction: South Africa.
       </p>
 
@@ -34,7 +34,7 @@ export default function TermsPage() {
         <p><strong>Connector</strong> — An individual or entity that submits referrals on behalf of one or more vendors.</p>
         <p><strong>Referral</strong> — An introduction of a potential customer to a vendor, submitted via the platform.</p>
         <p><strong>Commission</strong> — A reward paid by a vendor to a connector when a referred job is confirmed as won.</p>
-        <p><strong>Ledger</strong> — The platform's public, hash-chained, append-only record of all trust events.</p>
+        <p><strong>Ledger</strong> — The platform&apos;s public, hash-chained, append-only record of all trust events.</p>
       </Section>
 
       <Section id="relationship" title="2. Nature of the relationship">
@@ -59,13 +59,13 @@ export default function TermsPage() {
         <p>
           Each vendor sets its own commission terms (Tier 1 percentage, flat closing bonus, Tier 2
           upline override, and eco pledge percentage). These terms are published publicly on the
-          vendor's listing before any connector submits a referral — connectors accept the terms in
+          vendor&apos;s listing before any connector submits a referral — connectors accept the terms in
           force at the time they submit.
         </p>
         <p>
           Commissions are earned only when a vendor marks a referral as{' '}
           <strong>won</strong>. TCN records the resulting payout event on the public ledger.
-          TCN does not handle commission payments — payment is the vendor's sole responsibility,
+          TCN does not handle commission payments — payment is the vendor&apos;s sole responsibility,
           to be made directly to the connector using the details and amount shown on the ledger.
         </p>
         <p>
@@ -88,7 +88,7 @@ export default function TermsPage() {
         </p>
         <p>
           The ledger does not store phone numbers or raw message content. Connector WhatsApp numbers
-          are stored securely in the platform's database for operational purposes only and are not
+          are stored securely in the platform&apos;s database for operational purposes only and are not
           displayed publicly.
         </p>
       </Section>
@@ -125,12 +125,12 @@ export default function TermsPage() {
 
       <Section id="liability" title="7. Limitation of liability">
         <p>
-          The platform is provided "as is" without warranties of any kind. TCN makes no guarantee
+          The platform is provided &quot;as is&quot; without warranties of any kind. TCN makes no guarantee
           of uptime, referral conversion, commission payment by vendors, or accuracy of
           vendor-provided information.
         </p>
         <p>
-          To the maximum extent permitted by South African law, TCN's liability to any connector
+          To the maximum extent permitted by South African law, TCN&apos;s liability to any connector
           or vendor for any claim arising from use of the platform is limited to the amount (if
           any) paid to TCN in the 12 months preceding the claim. Since the platform charges no
           fees, this limit is effectively zero.

@@ -137,7 +137,7 @@ export default function Home() {
               href="/vendors/primeturf"
               className="mt-6 block rounded-lg border border-white/20 px-5 py-2.5 text-center text-sm font-semibold hover:border-white/40"
             >
-              View PrimeTurf's full terms
+              View PrimeTurf&apos;s full terms
             </Link>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function Home() {
               no gas fees, no accounts.
             </p>
             <p className="mt-4 text-white/65">
-              That's not a trust score assigned by a platform. That's a permanent public record
+              That&apos;s not a trust score assigned by a platform. That&apos;s a permanent public record
               that the vendor, the connector, and every future visitor can verify themselves.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">

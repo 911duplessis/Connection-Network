@@ -1,7 +1,7 @@
 -- Connection Network — complete database setup.
 -- Paste this whole file into the Supabase SQL editor and run it.
 -- Idempotent: safe on a fresh database and safe to re-run on the existing one.
--- Generated from schema.sql + migration_0002..0005. Keep in sync if those change.
+-- Generated from schema.sql + migration_0002..0006. Keep in sync if those change.
 
 -- ============================================================
 -- supabase/schema.sql
@@ -360,6 +360,19 @@ create table if not exists processed_whatsapp_messages (
   message_id text primary key,
   processed_at timestamptz not null default now()
 );
+
+-- ============================================================
+-- supabase/migration_0006_payouts_unique.sql
+-- ============================================================
+-- Idempotency backstop for the "won" transition. The application-level guard
+-- in app/api/referrals/[id]/status/route.ts (conditional UPDATE ... WHERE
+-- status <> 'won') should already prevent this, but a unique constraint means
+-- a bug or a direct DB write can never silently create duplicate payouts for
+-- the same referral/tier — which previously meant duplicate, real, billed
+-- WhatsApp template sends per re-fire. Safe to run more than once.
+
+alter table payouts drop constraint if exists payouts_referral_tier_unique;
+alter table payouts add constraint payouts_referral_tier_unique unique (referral_id, tier);
 
 -- Make PostgREST expose the new tables/columns immediately.
 notify pgrst, 'reload schema';
