@@ -143,7 +143,7 @@ export default function JoinPage() {
             <li>— Payment is made once the vendor confirms the job as won — no reward on unconfirmed or cancelled jobs.</li>
             <li>— There are no fees, no joining costs, and no obligation to sell — connectors only introduce.</li>
             <li>— If you recruit other connectors with your referral code, you automatically earn a Tier 2 override on their commissions.</li>
-            <li>— Every referral, commission, and payout is recorded on The Connection Network's public, tamper-evident ledger.</li>
+            <li>— Every referral, commission, and payout is recorded on The Connection Network&apos;s public, tamper-evident ledger.</li>
           </ul>
           <label className="mt-4 flex items-start gap-3 text-xs text-white/70">
             <input

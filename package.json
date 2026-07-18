@@ -7,8 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "seed:primeturf": "node --env-file=.env.local --import tsx scripts/seed-primeturf.ts",
-    "seed:unassigned": "node --env-file=.env.local --import tsx scripts/seed-unassigned.ts"
+    "seed:unassigned": "node --env-file=.env.local --import tsx scripts/seed-unassigned.ts",
+    "seed:root-connector": "node --env-file=.env.local --import tsx scripts/seed-root-connector.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

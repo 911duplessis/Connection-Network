@@ -9,7 +9,7 @@ export default function ReferralForm({
   vendorSlug: string
   whatsappNumber: string
 }) {
-  const [connectorId, setConnectorId] = useState('')
+  const [connectorReferralCode, setConnectorReferralCode] = useState('')
   const [leadName, setLeadName] = useState('')
   const [leadContact, setLeadContact] = useState('')
   const [note, setNote] = useState('')
@@ -25,7 +25,13 @@ export default function ReferralForm({
       const res = await fetch('/api/referrals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectorId, vendorSlug, leadName, leadContact, note: note || undefined }),
+        body: JSON.stringify({
+          connectorReferralCode,
+          vendorSlug,
+          leadName,
+          leadContact,
+          note: note || undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong')
@@ -46,9 +52,9 @@ export default function ReferralForm({
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           required
-          placeholder="Your connector ID"
-          value={connectorId}
-          onChange={(e) => setConnectorId(e.target.value)}
+          placeholder="Your referral code"
+          value={connectorReferralCode}
+          onChange={(e) => setConnectorReferralCode(e.target.value.toUpperCase())}
           className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2"
         />
         <input
