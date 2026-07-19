@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browserClient'
+import {
+  clearConnectorCredentials,
+  getConnectorCredentials,
+  saveConnectorCredentials,
+} from '@/lib/connectors/localCredentials'
 
 interface Referral {
   id: string
@@ -60,6 +65,7 @@ export default function ConnectorDashboardPage() {
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Lookup failed')
     setResult(data)
+    saveConnectorCredentials({ whatsappNumber: whatsapp, referralCode: code })
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -74,6 +80,19 @@ export default function ConnectorDashboardPage() {
       setLoading(false)
     }
   }
+
+  // Remembered from a previous visit -- prefill and auto-load so a returning
+  // connector doesn't have to retype their number/code at all.
+  useEffect(() => {
+    const saved = getConnectorCredentials()
+    if (!saved) return
+    setWhatsappNumber(saved.whatsappNumber)
+    setReferralCode(saved.referralCode)
+    setLoading(true)
+    fetchDashboard(saved.whatsappNumber, saved.referralCode)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Lookup failed'))
+      .finally(() => setLoading(false))
+  }, [])
 
   // Live-refresh: once looked up, silently bridge into a Realtime session and
   // re-run the same lookup whenever this connector's dashboard channel gets a
@@ -128,7 +147,12 @@ export default function ConnectorDashboardPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">{result.connector.name}</h1>
           <button
-            onClick={() => setResult(null)}
+            onClick={() => {
+              clearConnectorCredentials()
+              setWhatsappNumber('')
+              setReferralCode('')
+              setResult(null)
+            }}
             className="text-sm text-white/50 hover:text-white"
           >
             Look up another connector
