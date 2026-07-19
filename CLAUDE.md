@@ -17,6 +17,23 @@ handoff brief (`developer-handoff-guide.md`), and the exact WhatsApp copy
 
 There is no automated test suite in this repo.
 
+## Strategic north star — read this before adding features
+
+**TCN is not a referral website. It's a trust-based, multi-party commercial network operating system.** The current MVP validates one loop — Need → Connection → Vendor → Outcome → Reward → Verification — and the point of that loop is not "manage referrals," it's proving that a decentralized trust network can coordinate commercial opportunities between people and businesses without a traditional lead marketplace in the middle. Keep that distinction live: it changes what counts as progress. Shipping another screen is not automatically progress. Strengthening trust, attribution, reputation, or economic alignment is.
+
+**Where TCN sits**: between lead-generation platforms, affiliate networks, business directories, CRM systems, reputation systems, and community commerce — overlapping all of them, owned by none of them. The differentiator is trust + attribution + transparency, not any single feature. Every successful connection this system records creates four things at once: economic value (the commission), relationship history (who introduced whom), reputation data (who performs), and network intelligence (where demand and supply actually meet). `ledger_entries` is not a blockchain-replacement gimmick — it's the trust infrastructure layer that makes all four of those provable instead of asserted. The long-term asset isn't the referral fee; it's the connection graph itself — who trusts whom, which vendors perform, which connectors create value, which categories and regions have gaps. That data is the moat, and every schema/ledger decision should be made with that in mind, not just "does this transaction work."
+
+**Before expanding scope, three questions gate the work** (this is the current priority — productize the proof, don't grow the feature surface):
+1. *Can a stranger understand TCN in 30 seconds?* The pitch is "Tell us what you need. We connect you with trusted businesses. When value is created, everyone who helped create the connection benefits" — not a database description.
+2. *Can a vendor see obvious ROI?* Their dashboard shouldn't be a table of rows — it should answer: how many opportunities came from TCN, what revenue resulted, what did TCN cost, who introduced the customer, what reputation is being built. The vendor should conclude "this is cheaper and better than advertising," not just be able to read their data.
+3. *Can a connector understand their economic opportunity?* Their dashboard should communicate "you're building a relationship asset" — driven by successful introductions, network growth, reputation, and category expertise — not "you submitted referrals."
+
+**Phase 1 candidates (productize the proof, in this order of leverage), not a backlog to grind through indiscriminately**: (A) a public/demo-mode "Network Health Dashboard" — active vendors, connections made, value generated, rewards distributed, verified ledger events — built for credibility with an outside viewer, not an internal admin; (B) upgrade the vendor dashboard (`app/vendor/dashboard/page.tsx`) from a referral-row list into business intelligence — opportunities received, quotes issued, deals won, revenue generated, TCN rewards paid, effective customer acquisition cost; (C) reframe the connector dashboard (`app/connector/dashboard/page.tsx`) around relationship-asset language instead of a referral list — the same underlying data, told as "what you're building," not "what you submitted." All three reuse data that already exists (`referrals`, `payouts`, `ledger_entries`) — this is a presentation and narrative problem now, not a missing-data problem.
+
+**Explicitly not yet** — these are real, valid future directions, but building any of them now would be solving a liquidity problem the network doesn't have yet: smart contracts, escrow, a crypto layer, complex AI-driven matching (the deterministic keyword matcher in `lib/routing/` is intentionally simple and stays that way until there's enough volume to justify more), a mobile app, or a full marketplace checkout flow.
+
+**The one-line test for any new work**: does this strengthen trust, attribution, reputation, or economic alignment — or is it just another screen? If it's the latter, it can wait.
+
 ## Commands
 
 ```bash
