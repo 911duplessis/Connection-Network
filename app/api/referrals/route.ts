@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { notify } from '@/lib/whatsapp/client'
+import { broadcastDashboardEvent } from '@/lib/realtime/broadcast'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -67,6 +68,11 @@ export async function POST(req: Request) {
     vendor.whatsapp_number,
     `New referral via The Connection Network: ${leadName} (${leadContact})${note ? ` — "${note}"` : ''}. Log in to your admin dashboard to follow up.`
   )
+
+  await broadcastDashboardEvent({ role: 'vendor', id: vendor.id }, 'update', {
+    reason: 'referral_submitted',
+    referralId: referral.id,
+  })
 
   return NextResponse.json({ referralId: referral.id })
 }
