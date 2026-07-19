@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getConnectorCredentials, saveConnectorCredentials } from '@/lib/connectors/localCredentials'
 
 export default function ReferralForm({
   vendorSlug,
@@ -16,6 +17,11 @@ export default function ReferralForm({
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const saved = getConnectorCredentials()
+    if (saved) setConnectorReferralCode(saved.referralCode)
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -36,12 +42,26 @@ export default function ReferralForm({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong')
       setSubmitted(true)
+      const saved = getConnectorCredentials()
+      saveConnectorCredentials({
+        whatsappNumber: saved?.whatsappNumber ?? '',
+        referralCode: connectorReferralCode,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
       setLoading(false)
     }
   }
+
+  const whatsappMessage = [
+    `Referral via The Connection Network (code: ${connectorReferralCode || '???'})`,
+    leadName && `Lead: ${leadName}`,
+    leadContact && `Contact: ${leadContact}`,
+    note && `Note: ${note}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
 
   if (submitted) {
     return <p className="mt-4 text-green-300">Referral submitted and recorded on the public ledger.</p>
@@ -87,7 +107,7 @@ export default function ReferralForm({
         </button>
       </form>
       <a
-        href={`https://wa.me/${whatsappNumber}`}
+        href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`}
         target="_blank"
         rel="noreferrer"
         className="mt-3 inline-block text-sm text-white/60 underline"
