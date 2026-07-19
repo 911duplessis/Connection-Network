@@ -145,26 +145,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     !!upline
   )
 
-  await appendLedgerEntry('referral_won', {
-    referralId: referral.id,
-    vendorSlug: vendor.slug,
-    connectorId: connector.id,
-    jobValueCents,
-  })
-
-  const tier1Entry = await appendLedgerEntry('commission_tier1_paid', {
-    referralId: referral.id,
-    connectorId: connector.id,
-    amountCents: breakdown.tier1AmountCents,
-  })
-
-  await supabaseAdmin.from('payouts').insert({
-    connector_id: connector.id,
-    referral_id: referral.id,
-    tier: 1,
-    amount_cents: breakdown.tier1AmountCents,
-    ledger_entry_seq: tier1Entry.seq,
-  })
+  // Everything from here that touches ledger_entries or payouts happens
+  // inside one Postgres function call (process_won_commissions,
+  // migration_0011) instead of a chain of independent round trips — either
+  // the full commission trail lands atomically or none of it does. A
+  // failure here means the referral is already 'won' (that update already
+  // committed above) with no commission recorded yet — the one remaining
+  // seam, surfaced loudly instead of silently, since it's the single most
+  // trust-critical write in the app.
+  try {
+    await supabaseAdmin.rpc('process_won_commissions', {
+      p_referral_id: referral.id,
+      p_vendor_slug: vendor.slug,
+      p_connector_id: connector.id,
+      p_job_value_cents: jobValueCents,
+      p_tier1_amount_cents: breakdown.tier1AmountCents,
+      p_upline_connector_id: upline?.id ?? null,
+      p_tier2_amount_cents: breakdown.hasTier2 ? breakdown.tier2AmountCents : 0,
+      p_eco_pledge_pct: vendor.eco_pledge_pct,
+    }).throwOnError()
+  } catch (err) {
+    console.error('[referrals/status] won but commission recording failed — referral_id:', referral.id, err)
+    return NextResponse.json(
+      { error: 'Referral marked won, but commission recording failed. This has been logged — please check the ledger before notifying anyone.' },
+      { status: 500 }
+    )
+  }
 
   // Business-initiated, usually outside the 24h window → prefer an approved
   // template, fall back to text (see lib/whatsapp/client notifyEvent).
@@ -186,20 +192,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   await maybePromoteConnectorGrade(connector.id, connector.whatsapp_number)
 
   if (breakdown.hasTier2 && upline) {
-    const tier2Entry = await appendLedgerEntry('commission_tier2_paid', {
-      referralId: referral.id,
-      connectorId: upline.id,
-      amountCents: breakdown.tier2AmountCents,
-    })
-
-    await supabaseAdmin.from('payouts').insert({
-      connector_id: upline.id,
-      referral_id: referral.id,
-      tier: 2,
-      amount_cents: breakdown.tier2AmountCents,
-      ledger_entry_seq: tier2Entry.seq,
-    })
-
     await notifyEvent(upline.whatsapp_number, {
       template: process.env.WHATSAPP_TEMPLATE_OVERRIDE_EARNED || null,
       bodyParams: [vendor.name, formatAmount(breakdown.tier2AmountCents, vendor.currency)],
@@ -209,15 +201,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     await broadcastDashboardEvent({ role: 'connector', id: upline.id }, 'update', {
       reason: 'override_earned',
       referralId: referral.id,
-    })
-  }
-
-  if (vendor.eco_pledge_pct > 0) {
-    await appendLedgerEntry('eco_pledge_honoured', {
-      referralId: referral.id,
-      vendorSlug: vendor.slug,
-      ecoPledgePct: vendor.eco_pledge_pct,
-      jobValueCents,
     })
   }
 
