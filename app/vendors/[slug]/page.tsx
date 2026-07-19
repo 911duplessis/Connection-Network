@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { UNASSIGNED_VENDOR_SLUG } from '@/lib/routing/constants'
 import ReferralForm from './ReferralForm'
 
 export default async function VendorPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -8,6 +9,17 @@ export default async function VendorPage({ params }: { params: Promise<{ slug: s
 
   const { data: vendor } = await supabase.from('vendors').select('*').eq('slug', slug).single()
   if (!vendor) notFound()
+
+  // Every active vendor, for the "refer to a different vendor instead" option
+  // on the form below — plus this vendor even if it's an unactivated preview,
+  // so the default selection is never missing from its own dropdown.
+  const { data: allVendors } = await supabase
+    .from('vendors')
+    .select('slug, name, whatsapp_number, active')
+    .neq('slug', UNASSIGNED_VENDOR_SLUG)
+    .order('name')
+
+  const vendorOptions = (allVendors ?? []).filter((v) => v.active || v.slug === vendor.slug)
 
   const { data: reviews } = await supabase
     .from('reviews')
@@ -61,7 +73,15 @@ export default async function VendorPage({ params }: { params: Promise<{ slug: s
 
       <div className="mt-8">
         <h2 className="text-xl font-semibold">Submit a referral</h2>
-        <ReferralForm vendorSlug={vendor.slug} whatsappNumber={vendor.whatsapp_number} />
+        <ReferralForm
+          vendorSlug={vendor.slug}
+          whatsappNumber={vendor.whatsapp_number}
+          vendors={vendorOptions.map((v) => ({
+            slug: v.slug,
+            name: v.name,
+            whatsappNumber: v.whatsapp_number,
+          }))}
+        />
       </div>
 
       <div className="mt-8">
