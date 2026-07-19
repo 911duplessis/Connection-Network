@@ -578,5 +578,26 @@ drop index if exists idx_user_roles_connector_id;
 create unique index if not exists idx_user_roles_connector_id_unique
   on user_roles(connector_id) where connector_id is not null;
 
+-- ============================================================
+-- supabase/migration_0010_referral_workflow.sql
+-- ============================================================
+-- Vendor referral workflow — accept/decline framing, full status-transition
+-- logging, and inviting WhatsApp-sourced leads to become connectors.
+-- Previously only the 'won' transition was written to the ledger;
+-- 'contacted'/'quoted'/'lost' updated the row silently. Safe to run more
+-- than once.
+
+alter table referrals add column if not exists connector_invite_sent_at timestamptz;
+
+alter table ledger_entries drop constraint if exists ledger_entries_entry_type_check;
+alter table ledger_entries add constraint ledger_entries_entry_type_check
+  check (entry_type in (
+    'connector_joined','referral_submitted','referral_won',
+    'commission_tier1_paid','commission_tier2_paid',
+    'eco_pledge_honoured','review_submitted',
+    'vendor_joined','agreement_signed','whatsapp_message_received',
+    'grade_promoted','referral_status_changed','connector_invited'
+  ));
+
 -- Make PostgREST expose the new tables/columns immediately.
 notify pgrst, 'reload schema';
