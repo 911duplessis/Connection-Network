@@ -8,7 +8,7 @@ export default function Footer() {
         <div className="flex flex-wrap gap-4">
           <Link href="/" className="hover:text-white">Home</Link>
           <Link href="/vendors" className="hover:text-white">Vendors</Link>
-          <Link href="/ledger" className="hover:text-white">Public Ledger</Link>
+          <Link href="/ledger" className="hover:text-white">Trust Record</Link>
           <Link href="/help" className="hover:text-white">Help</Link>
           <Link href="/guide/whatsapp-setup" className="hover:text-white">WhatsApp Setup Guide</Link>
           <Link href="/partner-agreement" className="hover:text-white">Partner Agreement</Link>
