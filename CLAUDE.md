@@ -65,6 +65,16 @@ There's no local Postgres — you need a live Supabase project to run almost any
 
 **Shared constants prevent taxonomy drift**: `lib/routing/categories.ts`'s `CATEGORIES` list is the single source used by vendor signup, the admin invitation form, and (implicitly, via `lib/routing/detect.ts`'s keyword map) request capture — add a category in one place if you add it, and update the keyword map too if it should be reachable from a free-text WhatsApp message.
 
+## Current status (as of the architecture-audit + hardening pass)
+
+**Functional and verified live in production**, not just code-reviewed: the full referral lifecycle (submit via web form, WhatsApp free-text, or the public lead form → vendor Accept/Decline → quoted → won/lost), atomic commission writes (`process_won_commissions()`, migration_0011), the tamper-evident ledger (hash chain verified clean via `/api/ledger/verify`), admin login and vendor login (both were silently broken — `SESSION_SECRET` had never been set in production until this pass), the admin overview panel (referral counts, quoted/won totals, commissions owed vs. paid, eco-pledge accrued), and payout paid-tracking. Migrations 0010–0012 are applied in production; `applied_migrations` now tracks that going forward instead of it being tribal knowledge.
+
+**Known limitation, explicitly not yet addressed**: the vendor and connector dashboards are still the original flat referral-row / earnings-total views — they didn't get the overview treatment the admin dashboard just got (referral counts by stage, quoted vs. won breakdown, payout status). Worth doing before those get scoped as separate follow-up work, since it's the same pattern already built for admin.
+
+**Explicitly out of scope for now, by design**: any real payment rail (smart contracts, escrow, or otherwise). `payouts.paid_at` is a manually-recorded admin attestation ("I paid this connector via EFT/cash/whatever"), not a real money movement — there is no payment processor integration anywhere in this codebase. That's a genuinely separate, later initiative, not a small addition on top of what exists.
+
+**Still-open operational item, unrelated to the app code**: `WHATSAPP_ACCESS_TOKEN` is a short-lived Graph API Explorer token (~2hr lifetime) that has now expired and been manually replaced multiple times this session. The standing fix — a permanent Meta System User access token — hasn't been done yet.
+
 ## Repo/branch note
 
 GitHub's default branch for this repo is `claude/connection-network-referral-1676o2`, not `main` — `main` lags behind it. Check which branch is actually current before assuming `main` reflects the live app.
