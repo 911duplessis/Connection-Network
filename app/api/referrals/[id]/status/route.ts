@@ -7,6 +7,7 @@ import { notifyEvent } from '@/lib/whatsapp/client'
 import { ADMIN_SESSION_COOKIE, verifyAdminToken } from '@/lib/admin/auth'
 import { VENDOR_SESSION_COOKIE, verifyVendorSession } from '@/lib/vendor/auth'
 import { maybePromoteConnectorGrade, overridePctForGrade } from '@/lib/connectors/grade'
+import { broadcastDashboardEvent } from '@/lib/realtime/broadcast'
 
 function formatAmount(cents: number, currency: string): string {
   return `${(cents / 100).toFixed(2)} ${currency}`
@@ -88,6 +89,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Referral not found' }, { status: 400 })
   }
 
+  await broadcastDashboardEvent({ role: 'vendor', id: referral.vendor_id }, 'update', {
+    reason: 'status_changed',
+    referralId: referral.id,
+    status,
+  })
+
   if (status !== 'won') {
     return NextResponse.json({ referralId: referral.id, status })
   }
@@ -150,6 +157,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     fallbackText: `Referral won! ${vendor.name} closed your lead for ${formatAmount(jobValueCents, vendor.currency)}. Your commission: ${formatAmount(breakdown.tier1AmountCents, vendor.currency)}.`,
   })
 
+  await broadcastDashboardEvent({ role: 'connector', id: connector.id }, 'update', {
+    reason: 'referral_won',
+    referralId: referral.id,
+  })
+
   await maybePromoteConnectorGrade(connector.id, connector.whatsapp_number)
 
   if (breakdown.hasTier2 && upline) {
@@ -171,6 +183,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       template: process.env.WHATSAPP_TEMPLATE_OVERRIDE_EARNED || null,
       bodyParams: [vendor.name, formatAmount(breakdown.tier2AmountCents, vendor.currency)],
       fallbackText: `Override commission earned: a connector in your downline closed a referral via ${vendor.name}. Your Tier 2 override: ${formatAmount(breakdown.tier2AmountCents, vendor.currency)}.`,
+    })
+
+    await broadcastDashboardEvent({ role: 'connector', id: upline.id }, 'update', {
+      reason: 'override_earned',
+      referralId: referral.id,
     })
   }
 

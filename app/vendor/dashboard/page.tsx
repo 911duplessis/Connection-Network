@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { VENDOR_SESSION_COOKIE, verifyVendorSession, unsafeDecodeVendorId } from '@/lib/vendor/auth'
 import ReferralRow from '@/components/ReferralRow'
 import SignOutButton from '@/components/SignOutButton'
+import LiveRefresh from '@/components/LiveRefresh'
 
 export default async function VendorDashboardPage() {
   const cookieStore = await cookies()
@@ -44,6 +45,8 @@ export default async function VendorDashboardPage() {
         </div>
         <SignOutButton logoutUrl="/api/vendor/logout" redirectTo="/vendor-login" />
       </div>
+
+      <LiveRefresh />
 
       <div className="mt-8 overflow-x-auto rounded-lg border border-white/10">
         <table className="w-full text-left text-sm">
