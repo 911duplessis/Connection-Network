@@ -12,3 +12,4 @@ export type LedgerEntryType =
   | 'grade_promoted'
   | 'referral_status_changed'
   | 'connector_invited'
+  | 'payout_marked_paid'
