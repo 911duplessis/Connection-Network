@@ -695,3 +695,29 @@ create index if not exists idx_ledger_entry_type on ledger_entries(entry_type);
 
 -- Make PostgREST expose the new function/tables immediately.
 notify pgrst, 'reload schema';
+
+-- ============================================================
+-- supabase/migration_0012_admin_overview.sql
+-- ============================================================
+-- Quote value capture, payout paid-tracking, and the ledger entry type
+-- backing the admin "mark paid" action. Safe to run more than once.
+
+alter table referrals add column if not exists quoted_value_cents bigint;
+alter table payouts add column if not exists paid_at timestamptz;
+
+alter table ledger_entries drop constraint if exists ledger_entries_entry_type_check;
+alter table ledger_entries add constraint ledger_entries_entry_type_check
+  check (entry_type in (
+    'connector_joined','referral_submitted','referral_won',
+    'commission_tier1_paid','commission_tier2_paid',
+    'eco_pledge_honoured','review_submitted',
+    'vendor_joined','agreement_signed','whatsapp_message_received',
+    'grade_promoted','referral_status_changed','connector_invited',
+    'payout_marked_paid'
+  ));
+
+insert into applied_migrations (name) values ('migration_0012_admin_overview.sql')
+on conflict (name) do nothing;
+
+-- Make PostgREST expose the new columns immediately.
+notify pgrst, 'reload schema';

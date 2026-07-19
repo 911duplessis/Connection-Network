@@ -11,6 +11,7 @@ interface Referral {
   lead_contact: string
   status: string
   job_value_cents: number | null
+  quoted_value_cents: number | null
   created_at: string
   category: string | null
   location: string | null
@@ -46,6 +47,7 @@ export default function ReferralRow({
     setError(null)
 
     let jobValueCents: number | undefined
+    let quotedValueCents: number | undefined
     if (newStatus === 'won') {
       const input = window.prompt('Job value (in Rand, e.g. 4500):')
       if (input === null) return
@@ -55,13 +57,24 @@ export default function ReferralRow({
         return
       }
       jobValueCents = Math.round(rand * 100)
+    } else if (newStatus === 'quoted') {
+      const input = window.prompt('Quoted value (in Rand, e.g. 4500) — optional, leave blank to skip:')
+      if (input === null) return
+      if (input.trim()) {
+        const rand = parseFloat(input)
+        if (Number.isNaN(rand) || rand <= 0) {
+          setError('Enter a valid quoted value, or leave it blank')
+          return
+        }
+        quotedValueCents = Math.round(rand * 100)
+      }
     }
 
     setLoading(true)
     const res = await fetch(`/api/referrals/${referral.id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus, jobValueCents }),
+      body: JSON.stringify({ status: newStatus, jobValueCents, quotedValueCents }),
     })
     setLoading(false)
 
@@ -169,9 +182,15 @@ export default function ReferralRow({
         <span className="rounded-full bg-white/10 px-2 py-1 text-xs uppercase">{status}</span>
       </td>
       <td className="px-4 py-3">
-        {referral.job_value_cents
-          ? `${(referral.job_value_cents / 100).toFixed(2)} ${referral.vendors?.currency ?? ''}`
-          : '—'}
+        {referral.job_value_cents ? (
+          <div>{(referral.job_value_cents / 100).toFixed(2)} {referral.vendors?.currency ?? ''}</div>
+        ) : referral.quoted_value_cents ? (
+          <div className="text-white/50">
+            Quoted: {(referral.quoted_value_cents / 100).toFixed(2)} {referral.vendors?.currency ?? ''}
+          </div>
+        ) : (
+          '—'
+        )}
       </td>
       <td className="px-4 py-3 text-white/60">
         {new Date(referral.created_at).toLocaleDateString()}

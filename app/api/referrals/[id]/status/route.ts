@@ -18,7 +18,7 @@ const VALID_STATUSES = ['submitted', 'contacted', 'quoted', 'won', 'lost']
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const body = await req.json()
-  const { status, jobValueCents } = body
+  const { status, jobValueCents, quotedValueCents } = body
 
   if (!VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
@@ -66,7 +66,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   let updateQuery = supabaseAdmin
     .from('referrals')
-    .update({ status, job_value_cents: isWonTransition ? jobValueCents : undefined })
+    .update({
+      status,
+      job_value_cents: isWonTransition ? jobValueCents : undefined,
+      // The proposed value at the 'quoted' step -- previously that
+      // transition was a bare status flag with no number attached anywhere.
+      quoted_value_cents: status === 'quoted' && quotedValueCents ? quotedValueCents : undefined,
+    })
     .eq('id', id)
 
   if (isWonTransition) {
@@ -108,6 +114,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       connectorId: connector.id,
       fromStatus: existing.status,
       toStatus: status,
+      ...(status === 'quoted' && quotedValueCents ? { quotedValueCents } : {}),
     })
 
     const STATUS_MESSAGES: Record<string, string> = {
