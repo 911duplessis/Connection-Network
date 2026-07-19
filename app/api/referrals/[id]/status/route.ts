@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { data: existing } = await supabaseAdmin
     .from('referrals')
-    .select('vendor_id, vendors(password_hash)')
+    .select('status, vendor_id, vendors(password_hash)')
     .eq('id', id)
     .single()
 
@@ -95,12 +95,33 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     status,
   })
 
-  if (status !== 'won') {
-    return NextResponse.json({ referralId: referral.id, status })
-  }
-
   const vendor = referral.vendors
   const connector = referral.connectors
+
+  if (status !== 'won') {
+    // Every status transition is logged and reported to the connector, not
+    // just 'won' — a one-sided ledger (vendor acts, connector never hears
+    // about it unless they get paid) is exactly what this entry type closes.
+    await appendLedgerEntry('referral_status_changed', {
+      referralId: referral.id,
+      vendorSlug: vendor.slug,
+      connectorId: connector.id,
+      fromStatus: existing.status,
+      toStatus: status,
+    })
+
+    const STATUS_MESSAGES: Record<string, string> = {
+      contacted: `${vendor.name} has accepted your referral for ${referral.lead_name} and is following up.`,
+      quoted: `${vendor.name} has sent a quote for your referral (${referral.lead_name}). We'll keep you posted.`,
+      lost: `${vendor.name} wasn't able to convert your referral for ${referral.lead_name} this time. Thanks for the introduction — keep them coming!`,
+    }
+
+    await notifyEvent(connector.whatsapp_number, {
+      fallbackText: STATUS_MESSAGES[status] ?? `Your referral for ${referral.lead_name} is now marked "${status}".`,
+    })
+
+    return NextResponse.json({ referralId: referral.id, status })
+  }
 
   const { data: upline } = connector.upline_connector_id
     ? await supabaseAdmin
