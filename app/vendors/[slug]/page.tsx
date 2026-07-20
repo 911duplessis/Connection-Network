@@ -43,6 +43,11 @@ export default async function VendorPage({ params }: { params: Promise<{ slug: s
         </div>
       )}
       <h1 className="text-2xl font-bold">{vendor.name}</h1>
+      {(vendor.category || vendor.location) && (
+        <p className="mt-1 text-sm text-white/50">
+          {[vendor.category, vendor.location].filter(Boolean).join(' · ')}
+        </p>
+      )}
       {avgRating && (
         <p className="mt-1 text-white/70">
           {avgRating} / 5 average ({reviews?.length} reviews)
