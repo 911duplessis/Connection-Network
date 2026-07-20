@@ -19,7 +19,7 @@ export default async function VendorDashboardPage() {
 
   const { data: vendor } = await supabaseAdmin
     .from('vendors')
-    .select('id, name, password_hash, whatsapp_number, email')
+    .select('id, name, password_hash, whatsapp_number, email, category, location')
     .eq('id', claimedVendorId)
     .single()
 
@@ -48,7 +48,9 @@ export default async function VendorDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{vendor.name}</h1>
-          <p className="text-sm text-white/50">Your referrals</p>
+          <p className="text-sm text-white/50">
+            {[vendor.category, vendor.location].filter(Boolean).join(' · ') || 'No category set'}
+          </p>
         </div>
         <div className="flex items-center gap-4">
           <Link href={`/join?${joinParams.toString()}`} className="text-sm text-cobalt underline">
