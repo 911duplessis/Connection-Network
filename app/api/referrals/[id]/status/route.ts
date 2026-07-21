@@ -18,7 +18,7 @@ const VALID_STATUSES = ['submitted', 'contacted', 'quoted', 'won', 'lost']
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const body = await req.json()
-  const { status, jobValueCents } = body
+  const { status, jobValueCents, quotedValueCents } = body
 
   if (!VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { data: existing } = await supabaseAdmin
     .from('referrals')
-    .select('vendor_id, vendors(password_hash)')
+    .select('status, vendor_id, vendors(password_hash)')
     .eq('id', id)
     .single()
 
@@ -66,7 +66,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   let updateQuery = supabaseAdmin
     .from('referrals')
-    .update({ status, job_value_cents: isWonTransition ? jobValueCents : undefined })
+    .update({
+      status,
+      job_value_cents: isWonTransition ? jobValueCents : undefined,
+      // The proposed value at the 'quoted' step -- previously that
+      // transition was a bare status flag with no number attached anywhere.
+      quoted_value_cents: status === 'quoted' && quotedValueCents ? quotedValueCents : undefined,
+    })
     .eq('id', id)
 
   if (isWonTransition) {
@@ -95,12 +101,34 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     status,
   })
 
-  if (status !== 'won') {
-    return NextResponse.json({ referralId: referral.id, status })
-  }
-
   const vendor = referral.vendors
   const connector = referral.connectors
+
+  if (status !== 'won') {
+    // Every status transition is logged and reported to the connector, not
+    // just 'won' — a one-sided ledger (vendor acts, connector never hears
+    // about it unless they get paid) is exactly what this entry type closes.
+    await appendLedgerEntry('referral_status_changed', {
+      referralId: referral.id,
+      vendorSlug: vendor.slug,
+      connectorId: connector.id,
+      fromStatus: existing.status,
+      toStatus: status,
+      ...(status === 'quoted' && quotedValueCents ? { quotedValueCents } : {}),
+    })
+
+    const STATUS_MESSAGES: Record<string, string> = {
+      contacted: `${vendor.name} has accepted your referral for ${referral.lead_name} and is following up.`,
+      quoted: `${vendor.name} has sent a quote for your referral (${referral.lead_name}). We'll keep you posted.`,
+      lost: `${vendor.name} wasn't able to convert your referral for ${referral.lead_name} this time. Thanks for the introduction — keep them coming!`,
+    }
+
+    await notifyEvent(connector.whatsapp_number, {
+      fallbackText: STATUS_MESSAGES[status] ?? `Your referral for ${referral.lead_name} is now marked "${status}".`,
+    })
+
+    return NextResponse.json({ referralId: referral.id, status })
+  }
 
   const { data: upline } = connector.upline_connector_id
     ? await supabaseAdmin
@@ -124,26 +152,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     !!upline
   )
 
-  await appendLedgerEntry('referral_won', {
-    referralId: referral.id,
-    vendorSlug: vendor.slug,
-    connectorId: connector.id,
-    jobValueCents,
-  })
-
-  const tier1Entry = await appendLedgerEntry('commission_tier1_paid', {
-    referralId: referral.id,
-    connectorId: connector.id,
-    amountCents: breakdown.tier1AmountCents,
-  })
-
-  await supabaseAdmin.from('payouts').insert({
-    connector_id: connector.id,
-    referral_id: referral.id,
-    tier: 1,
-    amount_cents: breakdown.tier1AmountCents,
-    ledger_entry_seq: tier1Entry.seq,
-  })
+  // Everything from here that touches ledger_entries or payouts happens
+  // inside one Postgres function call (process_won_commissions,
+  // migration_0011) instead of a chain of independent round trips — either
+  // the full commission trail lands atomically or none of it does. A
+  // failure here means the referral is already 'won' (that update already
+  // committed above) with no commission recorded yet — the one remaining
+  // seam, surfaced loudly instead of silently, since it's the single most
+  // trust-critical write in the app.
+  try {
+    await supabaseAdmin.rpc('process_won_commissions', {
+      p_referral_id: referral.id,
+      p_vendor_slug: vendor.slug,
+      p_connector_id: connector.id,
+      p_job_value_cents: jobValueCents,
+      p_tier1_amount_cents: breakdown.tier1AmountCents,
+      p_upline_connector_id: upline?.id ?? null,
+      p_tier2_amount_cents: breakdown.hasTier2 ? breakdown.tier2AmountCents : 0,
+      p_eco_pledge_pct: vendor.eco_pledge_pct,
+    }).throwOnError()
+  } catch (err) {
+    console.error('[referrals/status] won but commission recording failed — referral_id:', referral.id, err)
+    return NextResponse.json(
+      { error: 'Referral marked won, but commission recording failed. This has been logged — please check the ledger before notifying anyone.' },
+      { status: 500 }
+    )
+  }
 
   // Business-initiated, usually outside the 24h window → prefer an approved
   // template, fall back to text (see lib/whatsapp/client notifyEvent).
@@ -165,20 +199,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   await maybePromoteConnectorGrade(connector.id, connector.whatsapp_number)
 
   if (breakdown.hasTier2 && upline) {
-    const tier2Entry = await appendLedgerEntry('commission_tier2_paid', {
-      referralId: referral.id,
-      connectorId: upline.id,
-      amountCents: breakdown.tier2AmountCents,
-    })
-
-    await supabaseAdmin.from('payouts').insert({
-      connector_id: upline.id,
-      referral_id: referral.id,
-      tier: 2,
-      amount_cents: breakdown.tier2AmountCents,
-      ledger_entry_seq: tier2Entry.seq,
-    })
-
     await notifyEvent(upline.whatsapp_number, {
       template: process.env.WHATSAPP_TEMPLATE_OVERRIDE_EARNED || null,
       bodyParams: [vendor.name, formatAmount(breakdown.tier2AmountCents, vendor.currency)],
@@ -188,15 +208,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     await broadcastDashboardEvent({ role: 'connector', id: upline.id }, 'update', {
       reason: 'override_earned',
       referralId: referral.id,
-    })
-  }
-
-  if (vendor.eco_pledge_pct > 0) {
-    await appendLedgerEntry('eco_pledge_honoured', {
-      referralId: referral.id,
-      vendorSlug: vendor.slug,
-      ecoPledgePct: vendor.eco_pledge_pct,
-      jobValueCents,
     })
   }
 

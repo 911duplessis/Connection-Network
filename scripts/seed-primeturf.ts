@@ -9,6 +9,7 @@ async function seed() {
         name: 'PrimeTurf',
         whatsapp_number: '27768048868',
         website: 'https://www.primeturf.co.za',
+        category: 'Landscaping & Turf',
         tier1_pct: 5,
         tier1_flat_cents: 50000,
         tier2_override_pct: 10,

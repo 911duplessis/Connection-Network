@@ -1,10 +1,12 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { supabaseAdmin } from '@/lib/supabase'
 import { VENDOR_SESSION_COOKIE, verifyVendorSession, unsafeDecodeVendorId } from '@/lib/vendor/auth'
 import ReferralRow from '@/components/ReferralRow'
 import SignOutButton from '@/components/SignOutButton'
 import LiveRefresh from '@/components/LiveRefresh'
+import { UNASSIGNED_CONNECTOR_CODE } from '@/lib/routing/constants'
 
 export default async function VendorDashboardPage() {
   const cookieStore = await cookies()
@@ -17,7 +19,7 @@ export default async function VendorDashboardPage() {
 
   const { data: vendor } = await supabaseAdmin
     .from('vendors')
-    .select('id, name, password_hash')
+    .select('id, name, password_hash, whatsapp_number, email, category, location')
     .eq('id', claimedVendorId)
     .single()
 
@@ -36,14 +38,26 @@ export default async function VendorDashboardPage() {
     .eq('vendor_id', verifiedVendorId)
     .order('created_at', { ascending: false })
 
+  const joinParams = new URLSearchParams({ upline: UNASSIGNED_CONNECTOR_CODE })
+  if (vendor.name) joinParams.set('name', vendor.name)
+  if (vendor.whatsapp_number) joinParams.set('whatsapp', vendor.whatsapp_number)
+  if (vendor.email) joinParams.set('email', vendor.email)
+
   return (
     <main className="mx-auto max-w-5xl px-6 py-12">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{vendor.name}</h1>
-          <p className="text-sm text-white/50">Your referrals</p>
+          <p className="text-sm text-white/50">
+            {[vendor.category, vendor.location].filter(Boolean).join(' · ') || 'No category set'}
+          </p>
         </div>
-        <SignOutButton logoutUrl="/api/vendor/logout" redirectTo="/vendor-login" />
+        <div className="flex items-center gap-4">
+          <Link href={`/join?${joinParams.toString()}`} className="text-sm text-cobalt underline">
+            Become a connector too
+          </Link>
+          <SignOutButton logoutUrl="/api/vendor/logout" redirectTo="/vendor-login" />
+        </div>
       </div>
 
       <LiveRefresh />
