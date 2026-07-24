@@ -2,14 +2,31 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { notify } from '@/lib/whatsapp/client'
+import { broadcastDashboardEvent } from '@/lib/realtime/broadcast'
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const { connectorId, vendorSlug, leadName, leadContact, note } = body
+  const { connectorReferralCode, vendorSlug, leadName, leadContact, note } = body
 
-  if (!connectorId || !vendorSlug || !leadName || !leadContact) {
+  if (!connectorReferralCode || !vendorSlug || !leadName || !leadContact) {
     return NextResponse.json(
-      { error: 'connectorId, vendorSlug, leadName, and leadContact are required' },
+      { error: 'connectorReferralCode, vendorSlug, leadName, and leadContact are required' },
+      { status: 400 }
+    )
+  }
+
+  // Connectors only ever see their referral code, never their raw id (see
+  // /join, the connector dashboard, and WhatsApp/email notifications) — so
+  // this is the only identifier a real connector can type into this form.
+  const { data: connector } = await supabaseAdmin
+    .from('connectors')
+    .select('id')
+    .eq('referral_code', connectorReferralCode.trim().toUpperCase())
+    .maybeSingle()
+
+  if (!connector) {
+    return NextResponse.json(
+      { error: "We couldn't find a connector with that referral code. Double-check it and try again." },
       { status: 400 }
     )
   }
@@ -27,7 +44,7 @@ export async function POST(req: Request) {
   const { data: referral, error } = await supabaseAdmin
     .from('referrals')
     .insert({
-      connector_id: connectorId,
+      connector_id: connector.id,
       vendor_id: vendor.id,
       lead_name: leadName,
       lead_contact: leadContact,
@@ -42,7 +59,7 @@ export async function POST(req: Request) {
 
   await appendLedgerEntry('referral_submitted', {
     referralId: referral.id,
-    connectorId,
+    connectorId: connector.id,
     vendorSlug,
     leadName,
   })
@@ -51,6 +68,11 @@ export async function POST(req: Request) {
     vendor.whatsapp_number,
     `New referral via The Connection Network: ${leadName} (${leadContact})${note ? ` — "${note}"` : ''}. Log in to your admin dashboard to follow up.`
   )
+
+  await broadcastDashboardEvent({ role: 'vendor', id: vendor.id }, 'update', {
+    reason: 'referral_submitted',
+    referralId: referral.id,
+  })
 
   return NextResponse.json({ referralId: referral.id })
 }

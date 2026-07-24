@@ -23,14 +23,14 @@ export default function PartnerAgreementPage() {
       <h1 className="mt-3 text-3xl font-bold text-white">Partner Agreement</h1>
       <p className="mt-3 text-sm text-white/40">
         This agreement governs the relationship between The Connection Network and any individual
-        or entity that registers as a connector ("you"). By joining the network, you accept these terms.
+        or entity that registers as a connector (&quot;you&quot;). By joining the network, you accept these terms.
       </p>
 
       <section className="mt-10">
         <h2 className="font-semibold text-white">Reward structure</h2>
         <p className="mt-2 text-sm text-white/65">
           Each vendor on the network publishes its own reward terms before any connector submits a
-          referral. The terms you see on a vendor's listing — including Tier 1 reward percentage,
+          referral. The terms you see on a vendor&apos;s listing — including Tier 1 reward percentage,
           closing bonus, and any Tier 2 upline override — are the terms that apply to referrals you
           submit to that vendor. These terms are recorded on the public ledger when a deal closes and
           cannot be retroactively altered.
@@ -76,7 +76,7 @@ export default function PartnerAgreementPage() {
           <Clause n={6}>
             <strong className="text-white/80">All events recorded on the public ledger.</strong>{' '}
             Your join, every referral you submit, every commission event, and any review you
-            receive is appended to The Connection Network's public, tamper-evident ledger. These
+            receive is appended to The Connection Network&apos;s public, tamper-evident ledger. These
             records are permanent and publicly visible. Your name and referral code will appear
             on the ledger.
           </Clause>

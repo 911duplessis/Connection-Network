@@ -28,7 +28,7 @@ export default function WhatsAppSetupGuidePage() {
               business.facebook.com
             </a>{' '}
             and create a Business account using your business details (name, address, the WhatsApp number you
-            want customers to message). If you already have one for PrimeTurf's Facebook/Instagram, reuse it.
+            want customers to message). If you already have one for PrimeTurf&apos;s Facebook/Instagram, reuse it.
           </p>
         </li>
 
@@ -44,7 +44,7 @@ export default function WhatsAppSetupGuidePage() {
             >
               Business Info
             </a>
-            , click "Start Verification" and follow the prompts — you'll need a company document (CIPC
+            , click &quot;Start Verification&quot; and follow the prompts — you&apos;ll need a company document (CIPC
             registration, tax certificate, or similar). This step is the one most people get stuck on; it can
             take a few days for Meta to approve. Outbound messages will still work in test mode before
             verification finishes, just to a limited set of test numbers.
@@ -63,7 +63,7 @@ export default function WhatsAppSetupGuidePage() {
             >
               developers.facebook.com/apps
             </a>{' '}
-            → Create App → choose "Business" as the type → add the "WhatsApp" product to the app from the
+            → Create App → choose &quot;Business&quot; as the type → add the &quot;WhatsApp&quot; product to the app from the
             dashboard. Meta gives you a free test phone number immediately so you can start before your own
             number is approved.
           </p>
@@ -76,14 +76,14 @@ export default function WhatsAppSetupGuidePage() {
             permanent one: System Users (Business Settings → Users → System Users) → create a system user →
             assign your WhatsApp app to it → generate a token with the{' '}
             <code className="rounded bg-white/10 px-1 py-0.5 text-xs">whatsapp_business_messaging</code> permission.
-            Copy this token — it's your <code className="rounded bg-white/10 px-1 py-0.5 text-xs">WHATSAPP_ACCESS_TOKEN</code>.
+            Copy this token — it&apos;s your <code className="rounded bg-white/10 px-1 py-0.5 text-xs">WHATSAPP_ACCESS_TOKEN</code>.
           </p>
         </li>
 
         <li>
           <h2 className="text-lg font-semibold text-gold">5. Copy your phone number ID</h2>
           <p className="mt-2 text-sm text-white/70">
-            Still on the WhatsApp → API Setup page, copy the "Phone number ID" shown under your number — this is
+            Still on the WhatsApp → API Setup page, copy the &quot;Phone number ID&quot; shown under your number — this is
             your <code className="rounded bg-white/10 px-1 py-0.5 text-xs">WHATSAPP_PHONE_NUMBER_ID</code>.
           </p>
         </li>
@@ -137,7 +137,7 @@ export default function WhatsAppSetupGuidePage() {
       </ol>
 
       <p className="mt-10 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-        That's it — the moment those three values are saved and the webhook is verified, inbound messages
+        That&apos;s it — the moment those three values are saved and the webhook is verified, inbound messages
         start logging to the public ledger automatically and outbound notifications (referral updates,
         commission payouts) start sending for real. No further code changes are needed on our side.
       </p>
