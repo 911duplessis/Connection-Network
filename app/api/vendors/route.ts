@@ -4,6 +4,7 @@ import { appendLedgerEntry } from '@/lib/ledger/hashChain'
 import { hashPassword } from '@/lib/auth/password'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 import { notify } from '@/lib/whatsapp/client'
+import { sendEmail } from '@/lib/email/client'
 
 function slugify(name: string) {
   return name
@@ -79,6 +80,40 @@ export async function POST(req: Request) {
     vendorId: vendor.id,
     vendorSlug: vendor.slug,
     name: vendor.name,
+  })
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://connection-network.vercel.app'
+
+  // Confirm receipt to the vendor immediately. Previously this only ever
+  // happened on the invite-token path below, and even then it notified the
+  // person who sent the invite, not the vendor themselves -- a vendor who
+  // signs up organically heard nothing back at all.
+  await notify(
+    vendor.whatsapp_number,
+    `You're in, ${contactPerson}! Your ${vendor.name} listing on The Connection Network is being reviewed by our team and will go live shortly. ` +
+      `Preview it here: ${appUrl}/vendors/${vendor.slug}`
+  )
+  await sendEmail({
+    to: vendor.email,
+    subject: `You're in — ${vendor.name} on The Connection Network`,
+    html: `<p>Hi ${contactPerson},</p>
+<p>Thanks for signing up <strong>${vendor.name}</strong> on The Connection Network. Your listing is being reviewed and will go live shortly.</p>
+<p>Preview your listing now: <a href="${appUrl}/vendors/${vendor.slug}">${appUrl}/vendors/${vendor.slug}</a></p>
+<p>— The Connection Network</p>`,
+  })
+
+  // Tell the admin a new vendor needs approval. Previously nothing did this --
+  // a vendor could sit invisible on the public directory indefinitely unless
+  // someone thought to check /admin manually, which is exactly what happened.
+  await notify(
+    process.env.ADMIN_WHATSAPP_NUMBER,
+    `New vendor signup: ${vendor.name} (${category || 'no category'}) needs approval. Review at ${appUrl}/admin`
+  )
+  await sendEmail({
+    to: process.env.ADMIN_EMAIL,
+    subject: `New vendor pending approval — ${vendor.name}`,
+    html: `<p><strong>${vendor.name}</strong> just signed up and is waiting for approval.</p>
+<p>Review and activate: <a href="${appUrl}/admin">${appUrl}/admin</a></p>`,
   })
 
   // Vendor arrived via a personalized outreach invite — close the loop on
