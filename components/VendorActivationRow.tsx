@@ -7,6 +7,7 @@ interface Vendor {
   id: string
   name: string
   slug: string
+  category: string | null
   whatsapp_number: string | null
   active: boolean
 }
@@ -32,6 +33,7 @@ export default function VendorActivationRow({ vendor }: { vendor: Vendor }) {
         <div className="font-medium">{vendor.name}</div>
         <div className="text-xs text-white/50">/{vendor.slug}</div>
       </td>
+      <td className="px-4 py-3 text-white/60">{vendor.category ?? '—'}</td>
       <td className="px-4 py-3 text-white/60">{vendor.whatsapp_number ?? '—'}</td>
       <td className="px-4 py-3">
         <span

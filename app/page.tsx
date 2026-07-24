@@ -1,5 +1,48 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import InfoTip from '@/components/InfoTip'
+
+function Pillar({
+  icon,
+  name,
+  identity,
+  message,
+  info,
+  accent,
+  href,
+  cta,
+}: {
+  icon: string
+  name: string
+  identity: string
+  message: string
+  info: string
+  accent: string
+  href?: string
+  cta?: string
+}) {
+  // Deliberately not one big <Link> wrapping the whole card: the info
+  // disclosure below is itself an interactive element (<details>), and
+  // nesting interactive elements inside an <a> is invalid HTML -- browsers
+  // handle it inconsistently, and here it silently ate every tap on the
+  // info icon instead of opening it. Only the CTA line is a real link.
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-6 transition hover:border-white/25 hover:bg-white/[0.07]">
+      <div className="flex items-start justify-between">
+        <span className="text-3xl" aria-hidden="true">{icon}</span>
+        <InfoTip text={info} />
+      </div>
+      <p className={`mt-3 text-xs font-semibold uppercase tracking-widest ${accent}`}>{identity}</p>
+      <h3 className="mt-1 text-lg font-bold text-white">{name}</h3>
+      <p className="mt-2 text-sm text-white/60">{message}</p>
+      {cta && href && (
+        <Link href={href} className={`mt-4 block text-sm font-semibold ${accent} hover:underline`}>
+          {cta} →
+        </Link>
+      )}
+    </div>
+  )
+}
 
 function Step({ n, title, body }: { n: string; title: string; body: string }) {
   return (
@@ -68,6 +111,61 @@ export default function Home() {
             <Link href="/vendor-login" className="hover:text-white/70">Vendor login</Link>
             <span>·</span>
             <Link href="/vendors" className="hover:text-white/70">Browse vendors</Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── WHO ARE YOU? ────────────────────────────────────────────── */}
+      {/* The 5-second orientation layer: before anything else, every
+          visitor should be able to answer "what is this, who am I here,
+          what would I do." Same four pillars as the nav, same language,
+          so the mental model stays consistent everywhere it's taught. */}
+      <section className="border-b border-white/10 px-6 py-16">
+        <div className="mx-auto max-w-5xl">
+          <p className="text-center text-xs font-semibold uppercase tracking-widest text-white/40">
+            Who are you?
+          </p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Pillar
+              icon="🏢"
+              identity="Vendor Partner"
+              name="I run a business"
+              message="Grow your business through trusted connections."
+              info="Vendors receive opportunities and reward successful connections."
+              accent="text-cobalt"
+              href="/vendors"
+              cta="See how vendors join"
+            />
+            <Pillar
+              icon="🤝"
+              identity="Connector Partner"
+              name="I know people"
+              message="Turn trusted relationships into measurable value."
+              info="Connectors introduce opportunities. They don't sell products or recruit members."
+              accent="text-emerald-400"
+              href="/join"
+              cta="See how connectors join"
+            />
+            <Pillar
+              icon="🔗"
+              identity="Trust Record"
+              name="I want proof"
+              message="Every important network event is recorded and verifiable."
+              info="TCN records important events so connections and rewards remain transparent."
+              accent="text-gold"
+              href="/ledger"
+              cta="Verify it yourself"
+            />
+            <Pillar
+              icon="🌍"
+              identity="TCN Ecosystem"
+              name="I'm just looking"
+              message="A network where everyone benefits when value is created."
+              info="Every completed connection creates value for the customer, the connector, and the vendor — recorded so everyone can see it happened."
+              accent="text-white/70"
+              href="/help"
+              cta="See the bigger picture"
+            />
           </div>
         </div>
       </section>
@@ -175,15 +273,15 @@ export default function Home() {
       <section className="mx-auto max-w-5xl px-6 py-20">
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gold">Trust layer</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-gold">🔗 Trust Record</p>
             <h2 className="mt-3 text-3xl font-bold text-white">
-              TrustPilot times ten — and you can prove it.
+              Every important event, recorded and verifiable.
             </h2>
             <p className="mt-4 text-white/65">
-              Every referral, payout, eco pledge, and review is appended to a hash-chained ledger.
-              Each entry cryptographically links to the one before it: alter or delete any past
-              record and the chain breaks — detectably, by anyone, with one click. No wallets,
-              no gas fees, no accounts.
+              Every referral, payout, eco pledge, and review is written to the Trust Record —
+              technically a hash-chained ledger, where each entry cryptographically links to the
+              one before it. Alter or delete any past record and the chain breaks — detectably,
+              by anyone, with one click. No wallets, no gas fees, no accounts.
             </p>
             <p className="mt-4 text-white/65">
               That&apos;s not a trust score assigned by a platform. That&apos;s a permanent public record
@@ -194,7 +292,7 @@ export default function Home() {
                 href="/ledger"
                 className="rounded-lg bg-gold/10 px-6 py-3 font-semibold text-gold ring-1 ring-gold/30 hover:bg-gold/15"
               >
-                View the public ledger →
+                View the Trust Record →
               </Link>
             </div>
           </div>

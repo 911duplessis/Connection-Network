@@ -374,5 +374,350 @@ create table if not exists processed_whatsapp_messages (
 alter table payouts drop constraint if exists payouts_referral_tier_unique;
 alter table payouts add constraint payouts_referral_tier_unique unique (referral_id, tier);
 
+-- ============================================================
+-- supabase/migration_0007_rls_performance.sql
+-- ============================================================
+-- Performance: wrap auth.role() in a scalar subquery in the service-role RLS
+-- policies so Postgres evaluates it once per statement (cached via initPlan)
+-- instead of once per row -- see Supabase's "Auth RLS Initialization Plan"
+-- performance advisor. Read-only public policies (public_read_*) use a bare
+-- `true` and have no function call to optimize, so they're untouched.
+-- Safe to run more than once.
+
+drop policy if exists "service_role_all_vendors" on vendors;
+create policy "service_role_all_vendors" on vendors for all using ((select auth.role()) = 'service_role');
+
+drop policy if exists "service_role_all_connectors" on connectors;
+create policy "service_role_all_connectors" on connectors for all using ((select auth.role()) = 'service_role');
+
+drop policy if exists "service_role_all_referrals" on referrals;
+create policy "service_role_all_referrals" on referrals for all using ((select auth.role()) = 'service_role');
+
+drop policy if exists "service_role_all_ledger" on ledger_entries;
+create policy "service_role_all_ledger" on ledger_entries for all using ((select auth.role()) = 'service_role');
+
+drop policy if exists "service_role_all_reviews" on reviews;
+create policy "service_role_all_reviews" on reviews for all using ((select auth.role()) = 'service_role');
+
+drop policy if exists "service_role_all_payouts" on payouts;
+create policy "service_role_all_payouts" on payouts for all using ((select auth.role()) = 'service_role');
+
+drop policy if exists "service_role_all_invitations" on invitations;
+create policy "service_role_all_invitations" on invitations for all using ((select auth.role()) = 'service_role');
+
+-- ============================================================
+-- supabase/migration_0008_realtime_dashboard_auth.sql
+-- ============================================================
+-- Captures RLS/schema that was applied directly to production outside the
+-- documented migration workflow, so `setup.sql` matches reality. This is a
+-- second, parallel auth path: Supabase Auth (auth.uid()) + a user_roles
+-- table linking an auth user to their vendor_id/connector_id, used for
+-- direct browser reads and Realtime Authorization on the connector/vendor
+-- dashboards -- separate from and in addition to the app's primary custom
+-- JWT session system (lib/auth/session.ts) used by the API routes.
+--
+-- As of writing, no application code creates Supabase Auth users or
+-- populates user_roles, so these policies are currently inert (auth.uid()
+-- is null for every request the app makes) -- this migration only documents
+-- the deployed shape, it does not wire up the feature. Safe to run more
+-- than once.
+
+create table if not exists user_roles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  vendor_id uuid references vendors(id) on delete set null,
+  connector_id uuid references connectors(id) on delete set null,
+  role text not null check (role in ('vendor', 'connector')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_user_roles_vendor_id on user_roles(vendor_id);
+create index if not exists idx_user_roles_connector_id on user_roles(connector_id);
+
+create or replace function set_user_roles_updated_at()
+returns trigger as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_user_roles_updated_at on user_roles;
+create trigger trg_user_roles_updated_at
+  before update on user_roles
+  for each row execute function set_user_roles_updated_at();
+
+alter table user_roles enable row level security;
+
+drop policy if exists "user_roles_select_own" on user_roles;
+create policy "user_roles_select_own" on user_roles for select
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "user_roles_update_own" on user_roles;
+create policy "user_roles_update_own" on user_roles for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists "user_roles_upsert_own" on user_roles;
+create policy "user_roles_upsert_own" on user_roles for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+-- ── Owner-scoped reads on existing tables, in addition to the
+-- service-role-only policies -- lets an authenticated Supabase Auth user
+-- with a matching user_roles row read their own data directly. ──
+
+drop policy if exists "vendor_read_own" on vendors;
+create policy "vendor_read_own" on vendors for select
+  to authenticated
+  using (exists (
+    select 1 from user_roles ur
+    where ur.user_id = auth.uid() and ur.role = 'vendor' and ur.vendor_id = vendors.id
+  ));
+
+drop policy if exists "connector_read_own" on connectors;
+create policy "connector_read_own" on connectors for select
+  to authenticated
+  using (exists (
+    select 1 from user_roles ur
+    where ur.user_id = auth.uid() and ur.role = 'connector' and ur.connector_id = connectors.id
+  ));
+
+drop policy if exists "referrals_read_own" on referrals;
+create policy "referrals_read_own" on referrals for select
+  to authenticated
+  using (exists (
+    select 1 from user_roles ur
+    where ur.user_id = auth.uid()
+      and (
+        (ur.role = 'vendor' and referrals.vendor_id = ur.vendor_id)
+        or (ur.role = 'connector' and referrals.connector_id = ur.connector_id)
+      )
+  ));
+
+drop policy if exists "ledger_read_own" on ledger_entries;
+create policy "ledger_read_own" on ledger_entries for select
+  to authenticated
+  using (exists (
+    select 1 from user_roles ur
+    where ur.user_id = auth.uid()
+      and (
+        (ur.role = 'vendor' and (ledger_entries.payload ->> 'vendor_id')::uuid = ur.vendor_id)
+        or (ur.role = 'connector' and (ledger_entries.payload ->> 'connector_id')::uuid = ur.connector_id)
+      )
+  ));
+
+drop policy if exists "payouts_read_own" on payouts;
+create policy "payouts_read_own" on payouts for select
+  to authenticated
+  using (exists (
+    select 1 from user_roles ur
+    where ur.user_id = auth.uid() and ur.role = 'connector' and payouts.connector_id = ur.connector_id
+  ));
+
+drop policy if exists "reviews_read_own" on reviews;
+create policy "reviews_read_own" on reviews for select
+  to authenticated
+  using (exists (
+    select 1 from user_roles ur
+    where ur.user_id = auth.uid() and ur.role = 'vendor' and reviews.vendor_id = ur.vendor_id
+  ));
+
+-- ── Realtime Authorization: private per-dashboard broadcast channels,
+-- topic-named "connector:<connector_id>:dashboard" / "vendor:<vendor_id>:dashboard". ──
+
+alter table realtime.messages enable row level security;
+
+drop policy if exists "connector_dashboard_receive_by_phone" on realtime.messages;
+create policy "connector_dashboard_receive_by_phone" on realtime.messages for select
+  to authenticated
+  using (
+    split_part(topic, ':', 1) = 'connector'
+    and split_part(topic, ':', 3) = 'dashboard'
+    and exists (
+      select 1 from user_roles ur
+      where ur.user_id = auth.uid()
+        and ur.role = 'connector'
+        and ur.connector_id = (split_part(realtime.messages.topic, ':', 2))::uuid
+    )
+  );
+
+drop policy if exists "vendor_dashboard_receive_by_phone" on realtime.messages;
+create policy "vendor_dashboard_receive_by_phone" on realtime.messages for select
+  to authenticated
+  using (
+    split_part(topic, ':', 1) = 'vendor'
+    and split_part(topic, ':', 3) = 'dashboard'
+    and exists (
+      select 1 from user_roles ur
+      where ur.user_id = auth.uid()
+        and ur.role = 'vendor'
+        and ur.vendor_id = (split_part(realtime.messages.topic, ':', 2))::uuid
+    )
+  );
+
+-- ============================================================
+-- supabase/migration_0009_bridge_identity_unique.sql
+-- ============================================================
+-- Data-integrity backstop for the bridge-identity feature (lib/auth/bridge.ts):
+-- enforces "at most one Supabase Auth identity per vendor/connector" as a hard
+-- constraint, so user_roles can never accumulate two rows both satisfying
+-- `ur.vendor_id = X` (or connector_id) for different user_ids -- which would
+-- otherwise silently widen who satisfies a given vendor's/connector's RLS
+-- checks. Also makes the user_roles upsert in createBridgeSession() well
+-- defined. Replaces the plain (non-unique) indexes from migration_0008.
+-- Safe to run more than once.
+
+drop index if exists idx_user_roles_vendor_id;
+create unique index if not exists idx_user_roles_vendor_id_unique
+  on user_roles(vendor_id) where vendor_id is not null;
+
+drop index if exists idx_user_roles_connector_id;
+create unique index if not exists idx_user_roles_connector_id_unique
+  on user_roles(connector_id) where connector_id is not null;
+
+-- ============================================================
+-- supabase/migration_0010_referral_workflow.sql
+-- ============================================================
+-- Vendor referral workflow — accept/decline framing, full status-transition
+-- logging, and inviting WhatsApp-sourced leads to become connectors.
+-- Previously only the 'won' transition was written to the ledger;
+-- 'contacted'/'quoted'/'lost' updated the row silently. Safe to run more
+-- than once.
+
+alter table referrals add column if not exists connector_invite_sent_at timestamptz;
+
+alter table ledger_entries drop constraint if exists ledger_entries_entry_type_check;
+alter table ledger_entries add constraint ledger_entries_entry_type_check
+  check (entry_type in (
+    'connector_joined','referral_submitted','referral_won',
+    'commission_tier1_paid','commission_tier2_paid',
+    'eco_pledge_honoured','review_submitted',
+    'vendor_joined','agreement_signed','whatsapp_message_received',
+    'grade_promoted','referral_status_changed','connector_invited'
+  ));
+
 -- Make PostgREST expose the new tables/columns immediately.
+notify pgrst, 'reload schema';
+
+-- ============================================================
+-- supabase/migration_0011_state_machine_hardening.sql
+-- ============================================================
+-- Migration tracking (applied_migrations, backfilled through this file) and
+-- an atomic commission-write path (process_won_commissions()) replacing six
+-- independent, non-transactional round trips in the 'won' status
+-- transition with one function call. Safe to run more than once.
+
+create table if not exists applied_migrations (
+  name text primary key,
+  applied_at timestamptz not null default now()
+);
+
+insert into applied_migrations (name) values
+  ('schema.sql'),
+  ('migration_0002_self_service.sql'),
+  ('migration_0003_email.sql'),
+  ('migration_0003_whatsapp_funnel.sql'),
+  ('migration_0004_request_routing.sql'),
+  ('migration_0005_webhook_idempotency.sql'),
+  ('migration_0006_payouts_unique.sql'),
+  ('migration_0007_rls_performance.sql'),
+  ('migration_0008_realtime_dashboard_auth.sql'),
+  ('migration_0009_bridge_identity_unique.sql'),
+  ('migration_0010_referral_workflow.sql'),
+  ('migration_0011_state_machine_hardening.sql')
+on conflict (name) do nothing;
+
+create or replace function process_won_commissions(
+  p_referral_id uuid,
+  p_vendor_slug text,
+  p_connector_id uuid,
+  p_job_value_cents bigint,
+  p_tier1_amount_cents bigint,
+  p_upline_connector_id uuid,
+  p_tier2_amount_cents bigint,
+  p_eco_pledge_pct numeric
+)
+returns jsonb
+language plpgsql
+as $$
+declare
+  v_tier1_entry ledger_entries;
+  v_tier2_entry ledger_entries;
+begin
+  perform append_ledger_entry('referral_won', jsonb_build_object(
+    'referralId', p_referral_id,
+    'vendorSlug', p_vendor_slug,
+    'connectorId', p_connector_id,
+    'jobValueCents', p_job_value_cents
+  ));
+
+  v_tier1_entry := append_ledger_entry('commission_tier1_paid', jsonb_build_object(
+    'referralId', p_referral_id,
+    'connectorId', p_connector_id,
+    'amountCents', p_tier1_amount_cents
+  ));
+
+  insert into payouts (connector_id, referral_id, tier, amount_cents, ledger_entry_seq)
+  values (p_connector_id, p_referral_id, 1, p_tier1_amount_cents, v_tier1_entry.seq)
+  on conflict (referral_id, tier) do nothing;
+
+  if p_upline_connector_id is not null and p_tier2_amount_cents > 0 then
+    v_tier2_entry := append_ledger_entry('commission_tier2_paid', jsonb_build_object(
+      'referralId', p_referral_id,
+      'connectorId', p_upline_connector_id,
+      'amountCents', p_tier2_amount_cents
+    ));
+
+    insert into payouts (connector_id, referral_id, tier, amount_cents, ledger_entry_seq)
+    values (p_upline_connector_id, p_referral_id, 2, p_tier2_amount_cents, v_tier2_entry.seq)
+    on conflict (referral_id, tier) do nothing;
+  end if;
+
+  if p_eco_pledge_pct > 0 then
+    perform append_ledger_entry('eco_pledge_honoured', jsonb_build_object(
+      'referralId', p_referral_id,
+      'vendorSlug', p_vendor_slug,
+      'ecoPledgePct', p_eco_pledge_pct,
+      'jobValueCents', p_job_value_cents
+    ));
+  end if;
+
+  return jsonb_build_object('tier1Seq', v_tier1_entry.seq, 'tier2Seq', v_tier2_entry.seq);
+end;
+$$;
+
+create index if not exists idx_referrals_vendor_created on referrals(vendor_id, created_at desc);
+create index if not exists idx_referrals_connector_status on referrals(connector_id, status);
+create index if not exists idx_ledger_entry_type on ledger_entries(entry_type);
+
+-- Make PostgREST expose the new function/tables immediately.
+notify pgrst, 'reload schema';
+
+-- ============================================================
+-- supabase/migration_0012_admin_overview.sql
+-- ============================================================
+-- Quote value capture, payout paid-tracking, and the ledger entry type
+-- backing the admin "mark paid" action. Safe to run more than once.
+
+alter table referrals add column if not exists quoted_value_cents bigint;
+alter table payouts add column if not exists paid_at timestamptz;
+
+alter table ledger_entries drop constraint if exists ledger_entries_entry_type_check;
+alter table ledger_entries add constraint ledger_entries_entry_type_check
+  check (entry_type in (
+    'connector_joined','referral_submitted','referral_won',
+    'commission_tier1_paid','commission_tier2_paid',
+    'eco_pledge_honoured','review_submitted',
+    'vendor_joined','agreement_signed','whatsapp_message_received',
+    'grade_promoted','referral_status_changed','connector_invited',
+    'payout_marked_paid'
+  ));
+
+insert into applied_migrations (name) values ('migration_0012_admin_overview.sql')
+on conflict (name) do nothing;
+
+-- Make PostgREST expose the new columns immediately.
 notify pgrst, 'reload schema';
