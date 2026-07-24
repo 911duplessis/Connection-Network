@@ -23,7 +23,8 @@ export default function AdminLoginPage() {
     setLoading(false)
 
     if (!res.ok) {
-      setError('Incorrect password')
+      const data = await res.json().catch(() => null)
+      setError(data?.error === 'Invalid password' ? 'Incorrect password' : data?.error || 'Something went wrong signing in')
       return
     }
 

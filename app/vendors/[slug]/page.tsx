@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { UNASSIGNED_VENDOR_SLUG } from '@/lib/routing/constants'
 import ReferralForm from './ReferralForm'
+import ReviewForm from './ReviewForm'
 
 export default async function VendorPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -103,6 +104,7 @@ export default async function VendorPage({ params }: { params: Promise<{ slug: s
           ))}
           {!reviews?.length && <p className="text-sm text-white/50">No reviews yet.</p>}
         </div>
+        <ReviewForm vendorSlug={vendor.slug} />
       </div>
     </main>
   )
