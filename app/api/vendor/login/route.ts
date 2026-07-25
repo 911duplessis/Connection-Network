@@ -38,10 +38,24 @@ export async function POST(req: Request) {
     if (!upgradeError) effectiveHash = upgraded
   }
 
+  // signVendorSession() throws if SESSION_SECRET is unset/too short -- surface
+  // that as a distinct, honest error instead of letting it 500 into whatever
+  // generic message the frontend shows for any non-2xx response.
+  let token: string
+  try {
+    token = await signVendorSession(vendor.id, effectiveHash)
+  } catch (err) {
+    console.error('[vendor/login] failed to create session token', err)
+    return NextResponse.json(
+      { error: 'Server session is misconfigured (SESSION_SECRET missing or invalid) — this is not a wrong password' },
+      { status: 500 }
+    )
+  }
+
   const res = NextResponse.json({ ok: true })
-  res.cookies.set(VENDOR_SESSION_COOKIE, await signVendorSession(vendor.id, effectiveHash), {
+  res.cookies.set(VENDOR_SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
