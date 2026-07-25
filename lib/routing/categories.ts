@@ -10,6 +10,7 @@ export const CATEGORIES = [
   'Mechanical & Auto',
   'Cleaning Services',
   'Handyman & General Maintenance',
+  'IT & Technology',
   'Professional Services',
   'Events & Hospitality',
   'Other',
