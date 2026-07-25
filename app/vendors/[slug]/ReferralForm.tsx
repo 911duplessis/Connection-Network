@@ -47,7 +47,6 @@ export default function ReferralForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           connectorReferralCode,
-          vendorSlug,
           vendorSlug: selectedVendorSlug,
           leadName,
           leadContact,
