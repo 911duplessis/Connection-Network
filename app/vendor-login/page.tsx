@@ -25,7 +25,8 @@ export default function VendorLoginPage() {
     setLoading(false)
 
     if (!res.ok) {
-      setError('Incorrect WhatsApp number or password')
+      const data = await res.json().catch(() => null)
+      setError(data?.error || 'Incorrect WhatsApp number or password')
       return
     }
 

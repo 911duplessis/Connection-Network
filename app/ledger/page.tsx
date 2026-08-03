@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import InfoTip from '@/components/InfoTip'
 
 interface LedgerEntry {
   seq: number
@@ -48,8 +49,11 @@ export default function LedgerPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
-      <p className="text-xs font-semibold uppercase tracking-widest text-gold">Trust layer</p>
-      <h1 className="mt-3 text-3xl font-bold">Public ledger</h1>
+      <p className="text-xs font-semibold uppercase tracking-widest text-gold">🔗 Trust Record</p>
+      <h1 className="mt-3 flex items-center gap-2 text-3xl font-bold">
+        Trust Record
+        <InfoTip text="TCN records important events so connections and rewards remain transparent. Technically, this is a hash-chained public ledger — every entry links to the one before it." />
+      </h1>
       <p className="mt-4 text-white/65">
         Every join, referral, payout, eco pledge, and review on The Connection Network is
         appended here — permanently. Each entry is cryptographically linked (SHA-256) to the one

@@ -183,8 +183,16 @@ can't be run from a sandboxed dev environment.
    ```bash
    npm run seed:primeturf
    ```
-5. `npm run dev` — join at `/join`, browse vendors at `/vendors`, watch the
-   feed at `/ledger`.
+5. **Seed a root connector.** `/join` always requires a valid upline
+   referral code (TCN grows by invitation only — see
+   `app/api/connectors/route.ts`), so a fresh deployment has no code
+   anyone can invite from yet. Seed exactly one connector with no upline,
+   then hand its code to whoever should recruit the first real connector:
+   ```bash
+   ROOT_CONNECTOR_WHATSAPP=27xxxxxxxxxx ROOT_CONNECTOR_NAME="Your Name" npm run seed:root-connector
+   ```
+6. `npm run dev` — join at `/join` with the root connector's code as the
+   upline, browse vendors at `/vendors`, watch the feed at `/ledger`.
 6. **Admin dashboard**: visit `/admin`, sign in with `ADMIN_PASSWORD` (set
    in `.env.local`), manage referral status and vendor approvals, and add
    outreach invitations from `/admin/invitations`.

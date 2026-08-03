@@ -1,6 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createBrowserSupabaseClient } from '@/lib/supabase/browserClient'
+import {
+  clearConnectorCredentials,
+  getConnectorCredentials,
+  saveConnectorCredentials,
+} from '@/lib/connectors/localCredentials'
 
 interface Referral {
   id: string
@@ -47,19 +53,27 @@ export default function ConnectorDashboardPage() {
     }
   }
 
+  const credentialsRef = useRef({ whatsappNumber, referralCode })
+  credentialsRef.current = { whatsappNumber, referralCode }
+
+  async function fetchDashboard(whatsapp: string, code: string) {
+    const res = await fetch('/api/connector/lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ whatsappNumber: whatsapp, referralCode: code }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Lookup failed')
+    setResult(data)
+    saveConnectorCredentials({ whatsappNumber: whatsapp, referralCode: code })
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/connector/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ whatsappNumber, referralCode }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Lookup failed')
-      setResult(data)
+      await fetchDashboard(whatsappNumber, referralCode)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Lookup failed')
     } finally {
@@ -67,13 +81,78 @@ export default function ConnectorDashboardPage() {
     }
   }
 
+  // Remembered from a previous visit -- prefill and auto-load so a returning
+  // connector doesn't have to retype their number/code at all.
+  useEffect(() => {
+    const saved = getConnectorCredentials()
+    if (!saved) return
+    setWhatsappNumber(saved.whatsappNumber)
+    setReferralCode(saved.referralCode)
+    setLoading(true)
+    fetchDashboard(saved.whatsappNumber, saved.referralCode)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Lookup failed'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Live-refresh: once looked up, silently bridge into a Realtime session and
+  // re-run the same lookup whenever this connector's dashboard channel gets a
+  // broadcast. Failures here (rate limit, network) are swallowed -- the
+  // dashboard already works fine via the manual lookup above without this.
+  useEffect(() => {
+    if (!result) return
+    let cancelled = false
+    const client = createBrowserSupabaseClient()
+    let channel: ReturnType<typeof client.channel> | null = null
+
+    async function connect() {
+      try {
+        const { whatsappNumber: whatsapp, referralCode: code } = credentialsRef.current
+        const res = await fetch('/api/connector/bridge-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ whatsappNumber: whatsapp, referralCode: code }),
+        })
+        if (!res.ok) return
+        const { accessToken, channelTopic } = await res.json()
+        if (cancelled) return
+
+        await client.realtime.setAuth(accessToken)
+        channel = client.channel(channelTopic, { config: { private: true } })
+        channel
+          .on('broadcast', { event: 'update' }, () => {
+            const { whatsappNumber: w, referralCode: c } = credentialsRef.current
+            fetchDashboard(w, c).catch(() => {
+              // Silent -- a failed background refresh just leaves the last
+              // known-good result on screen.
+            })
+          })
+          .subscribe()
+      } catch (err) {
+        console.warn('[connector-dashboard] live-refresh connect failed', err)
+      }
+    }
+
+    connect()
+
+    return () => {
+      cancelled = true
+      if (channel) client.removeChannel(channel)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!result])
+
   if (result) {
     return (
       <main className="mx-auto max-w-3xl px-6 py-16">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">{result.connector.name}</h1>
           <button
-            onClick={() => setResult(null)}
+            onClick={() => {
+              clearConnectorCredentials()
+              setWhatsappNumber('')
+              setReferralCode('')
+              setResult(null)
+            }}
             className="text-sm text-white/50 hover:text-white"
           >
             Look up another connector
@@ -82,7 +161,7 @@ export default function ConnectorDashboardPage() {
         <p className="mt-1 text-sm text-white/50">Referral code: {result.connector.referralCode}</p>
         {!result.connector.agreementSigned && (
           <p className="mt-2 text-sm text-gold">
-            You haven't signed the partner agreement yet — do that from your /join confirmation.
+            You haven&apos;t signed the partner agreement yet — do that from your /join confirmation.
           </p>
         )}
 

@@ -68,7 +68,16 @@ export async function POST(req: Request) {
     .single()
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error.code === '23505' && error.message.includes('whatsapp_number')) {
+      return NextResponse.json(
+        {
+          error:
+            "You're already registered as a connector with this WhatsApp number. Log in at /connector/dashboard with your existing referral code instead of signing up again.",
+        },
+        { status: 400 }
+      )
+    }
+    return NextResponse.json({ error: 'Something went wrong while signing you up. Please try again.' }, { status: 400 })
   }
 
   await appendLedgerEntry('connector_joined', {

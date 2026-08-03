@@ -1,14 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function JoinPage() {
+function JoinForm() {
+  const searchParams = useSearchParams()
   const [name, setName] = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [email, setEmail] = useState('')
   const [uplineReferralCode, setUplineReferralCode] = useState('')
   const [agreementAccepted, setAgreementAccepted] = useState(false)
+
+  // Lets a link do the typing: a vendor's "become a connector too" link, or
+  // a WhatsApp-lead's "become a connector" invite, prefills these fields —
+  // still fully editable, nothing here is submitted without the user
+  // reviewing and ticking the agreement checkbox themselves.
+  useEffect(() => {
+    const upline = searchParams.get('upline')
+    const prefillName = searchParams.get('name')
+    const prefillWhatsapp = searchParams.get('whatsapp')
+    const prefillEmail = searchParams.get('email')
+    if (upline) setUplineReferralCode(upline)
+    if (prefillName) setName(prefillName)
+    if (prefillWhatsapp) setWhatsappNumber(prefillWhatsapp)
+    if (prefillEmail) setEmail(prefillEmail)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [copied, setCopied] = useState(false)
   const [result, setResult] = useState<{ referralCode: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -143,7 +161,7 @@ export default function JoinPage() {
             <li>— Payment is made once the vendor confirms the job as won — no reward on unconfirmed or cancelled jobs.</li>
             <li>— There are no fees, no joining costs, and no obligation to sell — connectors only introduce.</li>
             <li>— If you recruit other connectors with your referral code, you automatically earn a Tier 2 override on their commissions.</li>
-            <li>— Every referral, commission, and payout is recorded on The Connection Network's public, tamper-evident ledger.</li>
+            <li>— Every referral, commission, and payout is recorded on The Connection Network&apos;s public, tamper-evident ledger.</li>
           </ul>
           <label className="mt-4 flex items-start gap-3 text-xs text-white/70">
             <input
@@ -171,5 +189,13 @@ export default function JoinPage() {
         </button>
       </form>
     </main>
+  )
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense fallback={null}>
+      <JoinForm />
+    </Suspense>
   )
 }
