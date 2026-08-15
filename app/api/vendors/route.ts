@@ -5,6 +5,7 @@ import { hashPassword } from '@/lib/auth/password'
 import { normalizeWhatsAppNumber } from '@/lib/whatsapp/normalize'
 import { notify } from '@/lib/whatsapp/client'
 import { sendEmail } from '@/lib/email/client'
+import { sendSms } from '@/lib/sms/client'
 
 function slugify(name: string) {
   return name
@@ -115,6 +116,12 @@ export async function POST(req: Request) {
     html: `<p><strong>${vendor.name}</strong> just signed up and is waiting for approval.</p>
 <p>Review and activate: <a href="${appUrl}/admin">${appUrl}/admin</a></p>`,
   })
+  // Third, independent channel -- WhatsApp delivery has been unreliable, so
+  // SMS via Twilio doesn't depend on Meta credentials or the 24h window.
+  await sendSms(
+    process.env.ADMIN_SMS_NUMBER,
+    `New vendor signup: ${vendor.name} needs approval. ${appUrl}/admin`
+  )
 
   // Vendor arrived via a personalized outreach invite — close the loop on
   // the invitations tracker and let whoever's WhatsApp received the
